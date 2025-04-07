@@ -41,7 +41,13 @@ jobs:
       run: echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
 
     - name: Build Docker Image
-      run: docker build -t ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} .
+      run: |
+        docker build \
+          --build-arg RDS_ENDPOINT=${{ secrets.RDS_ENDPOINT }} \
+          --build-arg RDS_DB_NAME=${{ secrets.RDS_DB_NAME }} \
+          --build-arg RDS_USERNAME=${{ secrets.RDS_USERNAME }} \
+          --build-arg RDS_PASSWORD=${{ secrets.RDS_PASSWORD }} \
+          -t ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} .
 
     - name: Push Docker Image to Docker Hub
       run: docker push ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }}
@@ -74,4 +80,11 @@ jobs:
           
           # 새 컨테이너 실행 
           echo "Starting a new container: $CONTAINER_NAME"
-          sudo docker run -d --name $CONTAINER_NAME -p 8082:8080 $IMAGE_NAME
+          sudo docker run -d \
+            --name $CONTAINER_NAME \
+            -p 8082:8080 \
+            -e RDS_ENDPOINT=${{ secrets.RDS_ENDPOINT }} \
+            -e RDS_DB_NAME=${{ secrets.RDS_DB_NAME }} \
+            -e RDS_USERNAME=${{ secrets.RDS_USERNAME }} \
+            -e RDS_PASSWORD=${{ secrets.RDS_PASSWORD }} \
+            $IMAGE_NAME
