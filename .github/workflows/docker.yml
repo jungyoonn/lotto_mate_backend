@@ -8,7 +8,7 @@ on:
       - master
 
 env:
-  DOCKER_IMAGE_NAME: junyoonn/lottomate_backend
+  DOCKER_IMAGE_NAME: junyoonn/lottomate
   DOCKER_TAG: latest
   CONTAINER_NAME: lottomate-backend-container
 
