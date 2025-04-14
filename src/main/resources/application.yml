@@ -1,7 +1,4 @@
 spring:
-  profiles:
-    # include:
-    # - database
   application:
     name: lottomate
   servlet:
