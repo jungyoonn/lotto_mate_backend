@@ -44,3 +44,8 @@ logging:
     org.hibernate: WARN
 app:
   domain: https://lottomate.eeerrorcode.com
+  
+jwt:
+  secret: ${JWT_SECRET:c2VjdXJpdHkta2V5LWZvci1sb3R0by1hcHBsaWNhdGlvbi13aXRoLWp3dC10b2tlbi1tYW5hZ2VtZW50}
+  token-validity-in-seconds: 86400
+  refresh-token-validity-in-seconds: 2592000
