@@ -49,6 +49,10 @@ dependencies {
 
 	// Validation 의존성 추가
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+	// selenium 의존성 추가
+	implementation 'org.seleniumhq.selenium:selenium-java:4.21.0'
+    implementation 'io.github.bonigarcia:webdrivermanager:5.8.0'
 }
 
 tasks.named('test') {
