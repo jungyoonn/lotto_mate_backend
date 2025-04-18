@@ -49,6 +49,9 @@ dependencies {
 
 	// OAuth2 client 의존성 추가 (소셜 로그인용)
 	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	// Google API 클라이언트 라이브러리 (ID 토큰 검증용)
+	implementation 'com.google.api-client:google-api-client:2.2.0'
+
 
 	// Validation 의존성 추가
 	implementation 'org.springframework.boot:spring-boot-starter-validation'

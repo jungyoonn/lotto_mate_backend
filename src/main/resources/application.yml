@@ -44,8 +44,34 @@ logging:
     org.hibernate: WARN
 app:
   domain: https://lottomate.eeerrorcode.com
-  
+
+# JWT와 OAuth2 기본 설정 - 배포 환경에서 환경 변수로 덮어씀
 jwt:
-  secret: ${JWT_SECRET:c2VjdXJpdHkta2V5LWZvci1sb3R0by1hcHBsaWNhdGlvbi13aXRoLWp3dC10b2tlbi1tYW5hZ2VtZW50}
-  token-validity-in-seconds: 86400
-  refresh-token-validity-in-seconds: 2592000
+  secret: ${JWT_SECRET:default-insecure-key}
+  token-validity-in-seconds: ${JWT_TOKEN_VALIDITY_SECONDS:86400}
+  refresh-token-validity-in-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:2592000}
+
+oauth2:
+  client:
+    registration:
+      google:
+        client-id: ${GOOGLE_CLIENT_ID:default-google-id}
+        client-secret: ${GOOGLE_CLIENT_SECRET:default-google-secret}
+        redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/auth/oauth2/callback/google}
+        scope:
+          - email
+          - profile
+      kakao:
+        client-id: ${KAKAO_CLIENT_ID:default-kakao-id}
+        client-secret: ${KAKAO_CLIENT_SECRET:default-kakao-secret}
+        redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8080/api/auth/oauth2/callback/kakao}
+        scope:
+          - account_email
+          - profile_nickname
+          - profile_image
+    provider:
+      kakao:
+        authorization-uri: https://kauth.kakao.com/oauth/authorize
+        token-uri: https://kauth.kakao.com/oauth/token
+        user-info-uri: https://kapi.kakao.com/v2/user/me
+        user-name-attribute: id

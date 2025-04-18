@@ -22,7 +22,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = true, unique = true)
     private String email;
 
     @Column(nullable = true) // 소셜 로그인 사용자는 비밀번호가 없을 수 있음
@@ -32,8 +32,10 @@ public class User {
     @Column(nullable = false)
     private String name;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String role = "USER";
+    @Builder.Default
+    private Role role = Role.USER;
 
     private String phone;
 
@@ -51,4 +53,8 @@ public class User {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    public enum Role {
+        USER, ADMIN
+    }
 }

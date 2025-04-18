@@ -7,6 +7,7 @@ import com.eeerrorcode.lottomate.domain.dto.user.AuthResponse;
 import com.eeerrorcode.lottomate.domain.dto.user.LoginRequest;
 import com.eeerrorcode.lottomate.domain.dto.user.SignupRequest;
 import com.eeerrorcode.lottomate.domain.entity.user.User;
+import com.eeerrorcode.lottomate.domain.entity.user.User.Role;
 import com.eeerrorcode.lottomate.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -28,7 +29,7 @@ public class AuthService {
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .name(request.getName())
-                .role("USER")
+                .role(Role.USER)
                 .isActive(true)
                 .emailVerified(false)
                 .build();
