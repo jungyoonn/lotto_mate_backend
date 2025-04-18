@@ -16,7 +16,7 @@ import lombok.ToString;
 @Setter
 @ToString
 public class LottoResultResponse {
-    private Long drawRound; // 마지막 회차 정보입니다. 
-    private LocalDateTime drawDate; // 마지막 회차의 날짜 정보입니다. 
-    private Long totalCount; // 마지막 회차까지의 Row 개수 정보입니다. 
+  private Long drawRound; // 마지막 회차 정보입니다. 
+  private LocalDateTime drawDate; // 마지막 회차의 날짜 정보입니다. 
+  private Long totalCount; // 마지막 회차까지의 Row 개수 정보입니다. 
 }
