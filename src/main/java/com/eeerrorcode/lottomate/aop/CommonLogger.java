@@ -22,17 +22,17 @@ import lombok.extern.log4j.Log4j2;
 @Log4j2
 public class CommonLogger {
 
-  // Controller 진입 포인트
+  // Controller 진입점
   @Pointcut("execution(* com.eeerrorcode.lottomate.controller..*(..))")
   public void controllerMethods() {
   }
 
-  // Service 진입 포인트
+  // Service 진입점
   @Pointcut("execution(* com.eeerrorcode.lottomate.service..*(..))")
   public void serviceMethods() {
   }
 
-  // 공통 진입 로그
+  // 공통 진입점 로깅
   @Before("controllerMethods() || serviceMethods()")
   public void logBefore(JoinPoint joinPoint) {
     String methodName = joinPoint.getSignature().toShortString();
@@ -40,7 +40,7 @@ public class CommonLogger {
     log.info("→ 진입점: {} | 파라미터: {}", methodName, Arrays.toString(args));
   }
 
-  // 공통 반환 로그 (요약 출력)
+  // 공통 반환점 로깅 (길이 길면 요약 출력)
   @AfterReturning(pointcut = "controllerMethods() || serviceMethods()", returning = "result")
   public void logAfterReturning(JoinPoint joinPoint, Object result) {
     String methodName = joinPoint.getSignature().toShortString();
@@ -54,7 +54,7 @@ public class CommonLogger {
     String resultStr = result.toString();
 
     if (resultStr.length() > 70) {
-      log.info("← 반환점: {} | 타입: {} | 리턴: (길이가 길어 생략됩니다 - 길이 {}자)", methodName, resultType, resultStr.length());
+      log.info("← 반환점: {} | 타입: {} | 리턴: (길어서 생략 - 길이 {}자)", methodName, resultType, resultStr.length());
     } else {
       log.info("← 반환점: {} | 타입: {} | 리턴턴: {}", methodName, resultType, resultStr);
     }
