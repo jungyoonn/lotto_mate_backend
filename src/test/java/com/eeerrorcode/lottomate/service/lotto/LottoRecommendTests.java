@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendOption;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendResponse;
 import com.eeerrorcode.lottomate.domain.enums.LottoRange;
+import com.eeerrorcode.lottomate.domain.enums.LottoRecommendSystem;
 
 import lombok.extern.log4j.Log4j2;
 
@@ -21,20 +22,21 @@ public class LottoRecommendTests {
   private LottoRecommendService lottoRecommendService;
 
   @Test
-  public void testRecommend100() {
+  void testRecommend100() {
     LottoRecommendOption option = LottoRecommendOption.builder()
-      .range(LottoRange.RECENT_100)
-      .allowEvenOddMix(true)
-      .includeBonusNumber(true)
-      .build();
+        .range(LottoRange.RECENT_100)
+        .mode(LottoRecommendSystem.HIGH_FREQUENCY)
+        .allowEvenOddMix(true)
+        .includeBonusNumber(true)
+        .build();
 
     LottoRecommendResponse result = lottoRecommendService.recommendNumbers(option);
-    List<Integer> numbers = result.getNumbers();
+    List<Long> numbers = result.getNumbers();
 
     log.info("추천 번호: {}", numbers);
 
     assertThat(numbers).hasSize(6);
     assertThat(numbers).allMatch(n -> n >= 1 && n <= 45);
   }
-}
 
+}
