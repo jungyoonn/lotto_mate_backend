@@ -1,4 +1,4 @@
-package com.eeerrorcode.lottomate.service.payment;
+package com.eeerrorcode.lottomate.service.subscription;
 
 import org.springframework.stereotype.Service;
 

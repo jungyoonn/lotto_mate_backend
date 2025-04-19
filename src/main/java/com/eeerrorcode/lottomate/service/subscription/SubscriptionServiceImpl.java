@@ -2,9 +2,11 @@ package com.eeerrorcode.lottomate.service.subscription;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.eeerrorcode.lottomate.domain.dto.subscription.*;
+import com.eeerrorcode.lottomate.repository.payment.SubscriptionRepository;
 
 import jakarta.transaction.Transactional;
 import lombok.extern.log4j.Log4j2;
@@ -13,6 +15,9 @@ import lombok.extern.log4j.Log4j2;
 @Transactional
 @Log4j2
 public class SubscriptionServiceImpl implements SubscriptionService {
+  @Autowired
+  private SubscriptionRepository subscriptionRepository;
+
   @Override
   public SubscriptionResponseDto getSubscriptionInfo(Long userId) {
     throw new UnsupportedOperationException("Unimplemented method 'getSubscriptionInfo'");
