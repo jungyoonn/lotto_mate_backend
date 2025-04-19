@@ -16,4 +16,6 @@ public class PaymentMethodDto {
   private String cardName;
   private String cardNumber;
   private String cardExpiry;
+  private String billingKey;
+  private boolean isActive;
 }

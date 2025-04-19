@@ -21,5 +21,6 @@ public class SubscriptionDto {
   private LocalDateTime endDate;
   private boolean autoRenewal;
   private LocalDateTime nextPaymentDate;
+  private String billingKey;
   private PaymentMethodDto paymentMethod;
 }
