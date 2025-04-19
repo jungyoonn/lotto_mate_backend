@@ -6,16 +6,17 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-@Schema(description = "로또 번호 추천 결과 DTO")
 @Getter
 @Builder
 @AllArgsConstructor
+@NoArgsConstructor
 public class LottoRecommendResponse {
 
-  @Schema(description = "추천된 번호 목록 (6개)", example = "[3, 12, 18, 24, 36, 42]")
-  private List<Integer> numbers;
+  @Schema(description = "추천된 번호 목록", example = "[5, 12, 23, 31, 44, 45]")
+  private List<Long> numbers;
 
-  @Schema(description = "적용된 추천 옵션")
+  @Schema(description = "요청에 사용된 옵션 정보")
   private LottoRecommendOption options;
 }
