@@ -1,5 +1,7 @@
 package com.eeerrorcode.lottomate.service.subscription;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -92,6 +94,40 @@ public interface SubscriptionService {
    */
   Long changePaymentMethod(Long userId, Long subscriptionId, Long paymentMethodId);
 
+  /**
+   * 구독 취소 이력 생성
+   * 
+   * @param userId 사용자 ID
+   * @param requestDTO 취소 요청 DTO
+   * @return 생성된 취소 이력 ID
+   */
+  Long createCancellation(Long userId, SubscriptionCancellationRequestDto requestDTO);
+
+  /**
+   * 구독 취소 이력 조회
+   * 
+   * @param userId 사용자 ID
+   * @return 취소 이력 목록
+   */
+  List<SubscriptionCancellationResponseDto> getCancellationHistory(Long userId);
+
+  /**
+   * 구독 취소 이력 상세 조회
+   * 
+   * @param userId 사용자 ID
+   * @param cancellationId 취소 이력 ID
+   * @return 취소 이력 상세 정보
+   */
+  SubscriptionCancellationDto getCancellationDetail(Long userId, Long cancellationId);
+
+  /**
+   * 관리자용 구독 취소 이력 처리
+   * 
+   * @param requestDTO 관리자 처리 요청 DTO
+   * @return 처리된 취소 이력 ID
+   */
+  Long processCancellationAdmin(SubscriptionCancellationAdminRequestDto requestDTO);
+
 
   /**
    * SubscriptionDto를 Subscription 엔티티로 변환
@@ -139,6 +175,38 @@ public interface SubscriptionService {
       .cardExpiry(dto.getCardExpiry())
       .billingKey(dto.getBillingKey())
       .isActive(dto.isActive())
+      .build();
+  }
+
+  /**
+   * PaymentDto를 Payment 엔티티로 변환
+   * 
+   * @param dto Payment dto
+   * @return Payment 엔티티
+   */
+  default Payment toEntity(PaymentDto dto) {
+    if (dto == null) {
+      return null;
+    }
+
+    return Payment.builder()
+      .id(dto.getId())
+      .user(User.builder().id(dto.getUserId()).build())
+      .subscription(Subscription.builder().id(dto.getSubscriptionId()).build())
+      .amount(dto.getAmount())
+      .paymentMethod(dto.getPaymentMethod())
+      .paymentStatus(dto.getPaymentStatus())
+      .merchantUid(dto.getMerchantUid())
+      .impUid(dto.getImpUid())
+      .paymentDate(dto.getPaymentDate())
+      .refundAmount(dto.getRefundAmount())
+      .refundDate(dto.getRefundDate())
+      .pgProvider(dto.getPgProvider())
+      .cardName(dto.getCardName())
+      .cardNumber(dto.getCardNumber())
+      .bankName(dto.getBankName())
+      .accountNumber(dto.getAccountNumber())
+      .receiptUrl(dto.getReceiptUrl())
       .build();
   }
 
@@ -289,6 +357,153 @@ public interface SubscriptionService {
       .impUid(payment.getImpUid())
       .paymentDate(payment.getPaymentDate())
       .receiptUrl(payment.getReceiptUrl())
+      .build();
+  }
+
+  /**
+   * SubscriptionCancellation 엔티티를 SubscriptionCancellationDto로 변환
+   * 
+   * @param cancellation 구독 취소 엔티티
+   * @return 구독 취소 Dto
+   */
+  default SubscriptionCancellationDto toCancellationDto(SubscriptionCancellation cancellation) {
+    if (cancellation == null) {
+      return null;
+    }
+      
+    return SubscriptionCancellationDto.builder()
+      .id(cancellation.getId())
+      .subscriptionId(cancellation.getSubscription().getId())
+      .userId(cancellation.getUser().getId())
+      .cancellationDate(cancellation.getCancellationDate())
+      .reason(cancellation.getReason())
+      .effectiveEndDate(cancellation.getEffectiveEndDate())
+      .refundProcessed(cancellation.isRefundProcessed())
+      .adminProcessed(cancellation.isAdminProcessed())
+      .adminNote(cancellation.getAdminNote())
+      .cancellationType(cancellation.getCancellationType())
+      .cancellationTypeDisplay(cancellation.getCancellationType().getDisplayName())
+      .planName(cancellation.getSubscription().getPlan().getName())
+      .userEmail(cancellation.getUser().getEmail())
+      .userName(cancellation.getUser().getName())
+      .build();
+  }
+
+  /**
+   * SubscriptionCancellationDto를 SubscriptionCancellation 엔티티로 변환
+   * 
+   * @param dto 구독 취소 dto
+   * @return 구독 취소 엔티티
+   */
+  default SubscriptionCancellation toCancellationEntity(SubscriptionCancellationDto dto) {
+    if (dto == null) {
+      return null;
+    }
+      
+    return SubscriptionCancellation.builder()
+      .id(dto.getId())
+      .subscription(Subscription.builder().id(dto.getSubscriptionId()).build())
+      .user(User.builder().id(dto.getUserId()).build())
+      .cancellationDate(dto.getCancellationDate())
+      .reason(dto.getReason())
+      .effectiveEndDate(dto.getEffectiveEndDate())
+      .refundProcessed(dto.isRefundProcessed())
+      .adminProcessed(dto.isAdminProcessed())
+      .adminNote(dto.getAdminNote())
+      .cancellationType(dto.getCancellationType())
+      .build();
+  }
+
+  /**
+   * SubscriptionCancellation 엔티티를 SubscriptionCancellationResponseDto로 변환
+   * 
+   * @param cancellation 구독 취소 엔티티
+   * @return 구독 취소 응답 Dto
+   */
+  default SubscriptionCancellationResponseDto toCancellationResponseDto(SubscriptionCancellation cancellation) {
+    if (cancellation == null) {
+      return null;
+    }
+      
+    // 날짜 포맷팅 처리
+    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    String formattedCancellationDate = cancellation.getCancellationDate().format(formatter);
+    String formattedEffectiveEndDate = cancellation.getEffectiveEndDate().format(formatter);
+      
+    SubscriptionCancellationResponseDto dto = SubscriptionCancellationResponseDto.builder()
+      .id(cancellation.getId())
+      .subscriptionId(cancellation.getSubscription().getId())
+      .cancellationDate(formattedCancellationDate)
+      .effectiveEndDate(formattedEffectiveEndDate)
+      .cancellationType(cancellation.getCancellationType())
+      .cancellationTypeDisplay(cancellation.getCancellationType().getDisplayName())
+      .refundProcessed(cancellation.isRefundProcessed())
+      .planName(cancellation.getSubscription().getPlan().getName())
+      .build();
+        
+    // 구독 기간 설정
+    int durationMonths = cancellation.getSubscription().getPlan().getDurationMonths();
+    dto.setPeriod(durationMonths <= 1 ? "monthly" : "yearly");
+      
+    return dto;
+  }
+
+  /**
+   * SubscriptionCancellation 엔티티 리스트를 SubscriptionCancellationResponseDto 리스트로 변환
+   * 
+   * @param cancellations 구독 취소 엔티티 리스트
+   * @return 구독 취소 응답 Dto 리스트
+   */
+  default List<SubscriptionCancellationResponseDto> toCancellationResponseDtoList(List<SubscriptionCancellation> cancellations) {
+    if (cancellations == null) {
+      return new ArrayList<>();
+    }
+      
+    return cancellations.stream()
+      .map(this::toCancellationResponseDto)
+      .collect(Collectors.toList());
+  }
+
+  
+  /**
+   * SubscriptionCancellationRequestDto를 SubscriptionCancellation 엔티티로 변환
+   * 
+   * @param requestDto 취소 요청 Dto
+   * @param user 사용자 엔티티
+   * @param subscription 구독 엔티티
+   * @return 구독 취소 엔티티
+   */
+  default SubscriptionCancellation toEntity(
+    SubscriptionCancellationRequestDto requestDto,
+    User user,
+    Subscription subscription
+  ) {
+    if (requestDto == null || user == null || subscription == null) {
+      return null;
+    }
+      
+    LocalDateTime now = LocalDateTime.now();
+    LocalDateTime endDate;
+      
+    // 취소 유형에 따라 종료일 결정
+    if (requestDto.getCancellationType() == CancellationType.IMMEDIATE_CANCEL 
+      || requestDto.getCancellationType() == CancellationType.REFUND_REQUEST) {
+      // 즉시 취소 또는 환불 요청인 경우 현재 시간으로 설정
+      endDate = now;
+    } else {
+      // 기간 종료 후 취소인 경우 구독의 종료일 사용
+      endDate = subscription.getEndDate();
+    }
+      
+    return SubscriptionCancellation.builder()
+      .subscription(subscription)
+      .user(user)
+      .cancellationDate(now)
+      .reason(requestDto.getReason())
+      .effectiveEndDate(endDate)
+      .refundProcessed(false) // 초기값은 미처리 상태
+      .adminProcessed(false) // 초기값은 미처리 상태
+      .cancellationType(requestDto.getCancellationType())
       .build();
   }
 }
