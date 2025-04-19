@@ -8,8 +8,10 @@ import lombok.*;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class SubscriptionCancelRequestDto {
+public class SubscriptionCancellationRequestDto {
+  // 구독 취소 요청 dto
   private Long subscriptionId;
   private String reason;
   private CancellationType cancellationType;
+  private boolean requestRefund;
 }
