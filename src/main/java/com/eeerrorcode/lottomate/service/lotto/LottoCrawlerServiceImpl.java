@@ -45,7 +45,7 @@ public class LottoCrawlerServiceImpl implements LottoCrawlerService {
     }
     try {
       if (lottoResultRepository.existsByDrawRound((long) round)) {
-        log.info("✅ {}회차는 이미 존재합니다. 건너뜁니다.", round);
+        log.info("{}회차는 이미 존재합니다. 건너뜁니다.", round);
         return;
       }
 
@@ -131,6 +131,7 @@ public class LottoCrawlerServiceImpl implements LottoCrawlerService {
 
   }
 
+
   @Override
   public void crawlAll() {
     WebDriverManager.chromedriver().setup();
@@ -156,6 +157,7 @@ public class LottoCrawlerServiceImpl implements LottoCrawlerService {
       driver.quit();
     }
   }
+
 
   @Override
   public void crawlLatest() {
