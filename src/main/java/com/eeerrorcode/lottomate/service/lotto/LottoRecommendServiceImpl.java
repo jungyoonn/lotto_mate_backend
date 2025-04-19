@@ -3,6 +3,7 @@ package com.eeerrorcode.lottomate.service.lotto;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -13,67 +14,117 @@ import com.eeerrorcode.lottomate.repository.lotto.LottoResultRepository;
 import com.eeerrorcode.lottomate.repository.projection.lotto.NumberFrequency;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 
 @Service
 @AllArgsConstructor
+@Log4j2
 public class LottoRecommendServiceImpl implements LottoRecommendService {
 
   @Autowired
   private final LottoResultRepository lottoResultRepository;
 
-@Override
-public LottoRecommendResponse recommendNumbers(LottoRecommendOption option) {
-  Long latestRound = lottoResultRepository.findTopByOrderByDrawRoundDesc()
-    .orElseThrow(() -> new RuntimeException("최신 회차 정보가 없습니다."))
-    .getDrawRound();
+  @Override
+  public LottoRecommendResponse recommendNumbers(LottoRecommendOption option) {
+    try {
+      Long latestRound = lottoResultRepository.findTopByOrderByDrawRoundDesc()
+          .orElseThrow(() -> new RuntimeException("최신 회차 정보가 없습니다."))
+          .getDrawRound();
 
-  Long rangeStart = latestRound - option.getRange().getVALUE() + 1;
+      Long rangeStart = latestRound - option.getRange().getVALUE() + 1;
 
-  // Projection 쿼리 분기
-  List<NumberFrequency> frequencyList = option.isIncludeBonusNumber()
-    ? lottoResultRepository.findNumberFrequenciesWithBonusInRange(rangeStart)
-    : lottoResultRepository.findNumberFrequenciesInRange(rangeStart);
+      List<NumberFrequency> frequencyList = option.isIncludeBonusNumber()
+          ? lottoResultRepository.findNumberFrequenciesWithBonusInRange(rangeStart)
+          : lottoResultRepository.findNumberFrequenciesInRange(rangeStart);
 
-  Collections.shuffle(frequencyList); // 동일 빈도에 랜덤성 부여
+      switch (option.getMode()) {
+        case HIGH_FREQUENCY -> frequencyList.sort((a, b) -> Long.compare(b.getFrequency(), a.getFrequency()));
+        case LOW_FREQUENCY -> frequencyList.sort((a, b) -> Long.compare(a.getFrequency(), b.getFrequency()));
+        case MIXED -> Collections.shuffle(frequencyList);
+        default -> throw new IllegalArgumentException("잘못된 추천 모드입니다.");
+      }
 
-  // 출현 빈도 기준 정렬 후 번호만 추출
-  List<Long> sortedByFrequency = frequencyList.stream()
-    .sorted((a, b) -> Long.compare(b.getFrequency(), a.getFrequency()))
-    .map(NumberFrequency::getNum)
-    .collect(java.util.stream.Collectors.toList());
+      List<Long> sortedByFrequency = frequencyList.stream()
+          .map(NumberFrequency::getNum)
+          .toList();
 
-  // 짝홀 조건 적용
-  List<Integer> filtered = applyEvenOddFilter(sortedByFrequency, option.isAllowEvenOddMix());
+      Set<Long> excluded = option.getExcludedNumbers() != null
+          ? option.getExcludedNumbers()
+          : Collections.emptySet();
 
-  // 최종 6개 번호 선택 + 정렬
-  List<Integer> finalNumbers = filtered.stream()
-    .limit(6)
-    .sorted()
-    .toList();
+      List<Long> candidates = sortedByFrequency.stream()
+          .filter(n -> !excluded.contains(n))
+          .toList();
 
-  return LottoRecommendResponse.builder()
-    .numbers(finalNumbers)
-    .options(option)
-    .build();
-}
+      List<Long> finalNumbers = new ArrayList<>();
+      if (option.getFixedNumbers() != null && !option.getFixedNumbers().isEmpty()) {
+        finalNumbers.addAll(option.getFixedNumbers());
+      }
 
-private List<Integer> applyEvenOddFilter(List<Long> numbers, boolean allowMix) {
-  List<Integer> converted = numbers.stream().map(Long::intValue).toList();
+      int remaining = 6 - finalNumbers.size();
+      candidates = candidates.stream()
+          .filter(n -> !finalNumbers.contains(n))
+          .toList();
 
-  if (allowMix) return converted;
+      List<Long> mixed = applyEvenOddFilter(candidates, option.isAllowEvenOddMix());
 
-  List<Integer> evens = converted.stream().filter(n -> n % 2 == 0).toList();
-  List<Integer> odds = converted.stream().filter(n -> n % 2 != 0).toList();
+      finalNumbers.addAll(
+          mixed.stream()
+              .limit(Math.max(0, remaining))
+              .toList());
 
-  Collections.shuffle(evens);
-  Collections.shuffle(odds);
+      List<Long> result = finalNumbers.stream()
+          .limit(6)
+          .sorted()
+          .toList();
 
-  int size = Math.min(3, Math.min(evens.size(), odds.size()));
+      return LottoRecommendResponse.builder()
+          .numbers(result)
+          .options(option)
+          .build();
 
-  List<Integer> result = new ArrayList<>();
-  result.addAll(evens.subList(0, size));
-  result.addAll(odds.subList(0, size));
-  return result;
-}
+    } catch (Exception e) {
+      log.error("추천 번호 생성 중 예외 발생!", e); 
+      throw e;
+    }
+  }
+
+  private List<Long> applyEvenOddFilter(List<Long> numbers, boolean allowMix) {
+
+    if (allowMix) {
+      return numbers;
+    }
+
+    List<Long> evens = new ArrayList<>(numbers.stream().filter(n -> n % 2 == 0).toList());
+    List<Long> odds = new ArrayList<>(numbers.stream().filter(n -> n % 2 != 0).toList());
+
+    log.info("짝수 후보 개수: {}", evens.size());
+    log.info("홀수 후보 개수: {}", odds.size());
+    log.info("총 후보 수: {}", numbers.size());
+
+    Collections.shuffle(evens);
+    Collections.shuffle(odds);
+
+    List<Long> result = new ArrayList<>();
+
+    if (evens.size() >= 3 && odds.size() >= 3) {
+      result.addAll(evens.subList(0, 3));
+      result.addAll(odds.subList(0, 3));
+    } else {
+      int evenCount = Math.min(3, evens.size());
+      int oddCount = Math.min(3, odds.size());
+
+      result.addAll(evens.subList(0, evenCount));
+      result.addAll(odds.subList(0, oddCount));
+
+      List<Long> leftovers = new ArrayList<>(numbers);
+      leftovers.removeAll(result);
+      Collections.shuffle(leftovers);
+      while (result.size() < 6 && !leftovers.isEmpty()) {
+        result.add(leftovers.remove(0));
+      }
+    }
+    return result.stream().limit(6).toList();
+  }
 
 }
