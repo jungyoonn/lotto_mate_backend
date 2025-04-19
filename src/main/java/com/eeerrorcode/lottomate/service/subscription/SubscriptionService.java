@@ -268,4 +268,27 @@ public interface SubscriptionService {
       .paymentMethod(paymentMethodDto)
       .build();
   }
+
+  /**
+   * Payment 엔티티를 PaymentResponseDto로 변환
+   * 
+   * @param payment 결제 엔티티
+   * @return 결제 응답 Dto
+   */
+  default PaymentResponseDto toDto(Payment payment) {
+    if (payment == null) {
+      return null;
+    }
+
+    return PaymentResponseDto.builder()
+      .id(payment.getId())
+      .amount(payment.getAmount())
+      .paymentMethod(payment.getPaymentMethod())
+      .paymentStatus(payment.getPaymentStatus().getDisplayName())
+      .merchantUid(payment.getMerchantUid())
+      .impUid(payment.getImpUid())
+      .paymentDate(payment.getPaymentDate())
+      .receiptUrl(payment.getReceiptUrl())
+      .build();
+  }
 }
