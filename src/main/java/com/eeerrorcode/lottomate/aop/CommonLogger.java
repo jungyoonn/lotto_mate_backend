@@ -12,10 +12,21 @@ import org.springframework.stereotype.Component;
 import lombok.extern.log4j.Log4j2;
 
 /**
- * 어떤 메서드, 어떤 서비스, 어떤 컨트롤러를 탔는지?
- * 로또메이트 전반의 흐름 제어 확인용 AOP입니다.
- * - 진입, 반환 시점의 로그를 기록합니다.
- * - 예외는 GlobalExceptionHandler가 처리하도록 별다른 처리는 하지 않았습니다.
+ * 공통 로깅 AOP 클래스입니다.
+ * <p>
+ * 모든 Controller 및 Service 계층의 진입 및 반환 시점에서 로그를 출력하며,
+ * 디버깅, 예외 분석, 호출 흐름 추적 등을 지원합니다.
+ * </p>
+ * <ul>
+ *   <li>진입 시점 로그: 호출 메서드 이름, 파라미터</li>
+ *   <li>반환 시점 로그: 결과 타입 및 결과 요약 (70자 이상 생략)</li>
+ * </ul>
+ *
+ * <p>
+ * 예외는 {@code GlobalExceptionHandler} 에서 처리되며, AOP에서는 잡지 않습니다.
+ * </p>
+ *
+ * @author DahnDell
  */
 @Aspect
 @Component
@@ -54,7 +65,7 @@ public class CommonLogger {
     String resultStr = result.toString();
 
     if (resultStr.length() > 70) {
-      log.info("← 반환점: {} | 타입: {} | 리턴: (길어서 생략 - 길이 {}자)", methodName, resultType, resultStr.length());
+      log.info("← 반환점: {} | 타입: {} | 리턴: (생략 - 길이 {}자)", methodName, resultType, resultStr.length());
     } else {
       log.info("← 반환점: {} | 타입: {} | 리턴턴: {}", methodName, resultType, resultStr);
     }
