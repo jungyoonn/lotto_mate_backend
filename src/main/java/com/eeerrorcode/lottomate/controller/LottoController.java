@@ -79,11 +79,24 @@ public class LottoController {
     }
   }
 
-  @Operation(summary = "로또 번호 추천", description = "선택된 회차 범위와 필터 옵션에 따라 당첨 확률이 높은 번호 6개를 추천합니다.")
+  @Operation(summary = "로또 번호 추천", description = """
+      회차 범위 및 다양한 필터 옵션을 바탕으로 당첨 가능성이 높은 번호 6개를 추천합니다.
+
+      [모드 선택]:
+      - HIGH_FREQUENCY: 많이 출현한 번호 중심
+      - MIXED: 두 가지 모드를 모두 혼합한 무작위 셔플 기반 추천
+      - LOW_FREQUENCY: 적게 출현한 번호 중심
+
+      [필터 옵션]:
+      - 고정 번호(fixedNumbers)는 무조건 포함
+      - 회피 번호(excludedNumbers)는 추천 대상에서 제외
+      - 짝/홀 비율 고정(3:3)을 비활성화하면 자유롭게 추천됩니다
+      - 보너스 번호는 통계에만 포함되며, 추천 번호에는 포함되지 않습니다
+      """)
   @ApiResponse(responseCode = "200", description = "추천 번호가 성공적으로 반환됩니다.", content = @Content(mediaType = "application/json", schema = @Schema(implementation = LottoRecommendResponse.class)))
   @PostMapping("/recommend")
   public ResponseEntity<CommonResponse<LottoRecommendResponse>> recommendNumbers(
-      @RequestBody @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "로또 번호 추천을 위한 옵션 값", required = true, content = @Content(schema = @Schema(implementation = LottoRecommendOption.class))) LottoRecommendOption option) {
+      @RequestBody @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "로또 번호 추천을 위한 옵션 값 (회차 범위, 모드, 고정/회피 번호, 짝홀/보너스 포함 여부 등)", required = true, content = @Content(schema = @Schema(implementation = LottoRecommendOption.class))) LottoRecommendOption option) {
     try {
       LottoRecommendResponse response = lottoRecommendService.recommendNumbers(option);
       return ResponseEntity.ok(CommonResponse.success(response, "추천 번호 조회 성공"));
