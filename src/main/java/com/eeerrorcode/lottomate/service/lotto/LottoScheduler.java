@@ -8,6 +8,22 @@ import com.eeerrorcode.lottomate.domain.dto.lotto.LottoResultResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
+
+/**
+ * 로또 스케줄러 컴포넌트.
+ * <p>
+ * 매주 토요일 밤 21시에 동행복권 사이트에서 최신 로또 회차 정보를 자동으로 크롤링하고
+ * DB에 저장합니다. 크롤링 성공 여부는 이전/이후 회차 정보를 비교하여 확인합니다.
+ * </p>
+ * <p>
+ * 또한, 수동 실행이 필요한 경우 {@link com.eeerrorcode.lottomate.controller.admin.LottoAdminController}
+ * 의 API를 통해 수동 호출이 가능합니다.
+ * </p>
+ *
+ * @author DahnDell
+ * @see LottoCrawlerService
+ * @see LottoResultService
+ */
 @Component
 @RequiredArgsConstructor
 @Log4j2
