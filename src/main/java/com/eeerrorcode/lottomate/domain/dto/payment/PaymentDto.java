@@ -29,4 +29,13 @@ public class PaymentDto {
   private String bankName; // 은행명
   private String accountNumber; // 마스킹된 계좌번호
   private String receiptUrl; // 영수증 URL
+
+  /**
+   * 결제가 환불되었는지 확인
+   * @return 환불 여부
+   */
+  public boolean isRefunded() {
+    return this.paymentStatus == PaymentStatus.REFUNDED || 
+      this.paymentStatus == PaymentStatus.PARTIAL_REFUNDED;
+  }
 }
