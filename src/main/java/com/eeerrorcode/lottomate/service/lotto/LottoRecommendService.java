@@ -1,7 +1,11 @@
 package com.eeerrorcode.lottomate.service.lotto;
 
+import java.util.List;
+
+import com.eeerrorcode.lottomate.domain.dto.lotto.LottoNumberInsight;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendOption;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendResponse;
+import com.eeerrorcode.lottomate.repository.projection.lotto.NumberFrequency;
 
 /**
  * 로또 번호 추천 관련 서비스를 정의하는 인터페이스입니다.
@@ -17,4 +21,6 @@ public interface LottoRecommendService {
    * @return 추천된 번호와 옵션 정보가 담긴 응답 DTO
    */
   LottoRecommendResponse recommendNumbers(LottoRecommendOption option);
+
+  List<LottoNumberInsight> analyzeInsights(List<Long> recommendedNumbers, List<NumberFrequency> frequencyList);
 }

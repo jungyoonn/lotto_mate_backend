@@ -2,12 +2,16 @@ package com.eeerrorcode.lottomate.service.lotto;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.eeerrorcode.lottomate.domain.dto.lotto.LottoNumberInsight;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendOption;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendResponse;
 import com.eeerrorcode.lottomate.repository.lotto.LottoResultRepository;
@@ -84,7 +88,7 @@ public class LottoRecommendServiceImpl implements LottoRecommendService {
           .build();
 
     } catch (Exception e) {
-      log.error("추천 번호 생성 중 예외 발생!", e); 
+      log.error("추천 번호 생성 중 예외 발생!", e);
       throw e;
     }
   }
@@ -125,6 +129,50 @@ public class LottoRecommendServiceImpl implements LottoRecommendService {
       }
     }
     return result.stream().limit(6).toList();
+  }
+
+  @Override
+  public List<LottoNumberInsight> analyzeInsights(List<Long> recommendedNumbers, List<NumberFrequency> frequencyList) {
+
+    Map<Long, Long> countMap = frequencyList.stream()
+        .collect(Collectors.toMap(NumberFrequency::getNum, NumberFrequency::getFrequency));
+
+    List<Long> rankedNumbers = frequencyList.stream()
+        .sorted((a, b) -> Long.compare(b.getFrequency(), a.getFrequency())) // HIGH 기준
+        .map(NumberFrequency::getNum)
+        .toList();
+
+    Map<Long, Long> rankMap = new HashMap<>();
+    for (int i = 0; i < rankedNumbers.size(); i++) {
+      rankMap.put(rankedNumbers.get(i), i + 1L); // Long 사용
+    }
+
+    List<LottoNumberInsight> insights = new ArrayList<>();
+
+    for (Long number : recommendedNumbers) {
+      Long count = countMap.getOrDefault(number, 0L);
+      Long rank = rankMap.getOrDefault(number, 0L);
+      String reason;
+
+      if (count == 0) {
+        reason = "최근 회차 내 미출현 번호 중 하나";
+      } else if (rank <= 10) {
+        reason = "출현 빈도 상위권 번호 (TOP10)";
+      } else if (rank >= 36) {
+        reason = "출현 빈도 하위권 번호 (BOTTOM10)";
+      } else {
+        reason = "균형 조합을 위한 중간 빈도 번호";
+      }
+
+      insights.add(LottoNumberInsight.builder()
+          .number(number)
+          .count(count)
+          .rank(rank)
+          .reason(reason)
+          .build());
+    }
+
+    return insights;
   }
 
 }
