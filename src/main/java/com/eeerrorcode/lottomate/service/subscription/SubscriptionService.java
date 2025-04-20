@@ -101,7 +101,7 @@ public interface SubscriptionService {
    * @param requestDTO 취소 요청 DTO
    * @return 생성된 취소 이력 ID
    */
-  Long createCancellation(Long userId, SubscriptionCancellationRequestDto requestDTO);
+  Long createCancellation(Long userId, SubscriptionCancellationRequestDto requestDto);
 
   /**
    * 구독 취소 이력 조회
@@ -126,7 +126,7 @@ public interface SubscriptionService {
    * @param requestDTO 관리자 처리 요청 DTO
    * @return 처리된 취소 이력 ID
    */
-  Long processCancellationAdmin(SubscriptionCancellationAdminRequestDto requestDTO);
+  Long processCancellationAdmin(SubscriptionCancellationAdminRequestDto requestDto);
 
 
   /**
