@@ -5,7 +5,6 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.eeerrorcode.lottomate.domain.dto.subscription.SubscriptionPlanDto;
-import com.eeerrorcode.lottomate.domain.entity.payment.SubscriptionPlan;
 import com.eeerrorcode.lottomate.exeption.ResourceNotFoundException;
 import com.eeerrorcode.lottomate.repository.payment.SubscriptionPlanRepository;
 import com.eeerrorcode.lottomate.repository.payment.SubscriptionRepository;
