@@ -8,7 +8,6 @@ import com.eeerrorcode.lottomate.domain.dto.user.LoginRequest;
 import com.eeerrorcode.lottomate.domain.dto.user.SignupRequest;
 import com.eeerrorcode.lottomate.domain.dto.user.UserRegistrationDto;
 import com.eeerrorcode.lottomate.domain.entity.user.User;
-import com.eeerrorcode.lottomate.domain.entity.user.User.Role;
 import com.eeerrorcode.lottomate.exeption.RegistrationException;
 import com.eeerrorcode.lottomate.repository.UserRepository;
 import com.eeerrorcode.lottomate.service.user.UserService;
