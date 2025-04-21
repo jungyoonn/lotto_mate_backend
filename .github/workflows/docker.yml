@@ -47,6 +47,12 @@ jobs:
           --build-arg RDS_DB_NAME=${{ secrets.RDS_DB_NAME }} \
           --build-arg RDS_USERNAME=${{ secrets.RDS_USERNAME }} \
           --build-arg RDS_PASSWORD=${{ secrets.RDS_PASSWORD }} \
+          --build-arg GOOGLE_REDIRECT_URI=${{ secrets.GOOGLE_REDIRECT_URI }} \
+          --build-arg GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }} \
+          --build-arg KAKAO_REDIRECT_URI=${{ secrets.KAKAO_REDIRECT_URI }} \
+          --build-arg KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }} \
+          --build-arg IAMPORT_API_KEY=${{ secrets.IAMPORT_API_KEY }} \
+          --build-arg IAMPORT_API_SECRET=${{ secrets.IAMPORT_API_SECRET }} \
           -t ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_TAG }} .
 
     - name: Push Docker Image to Docker Hub
@@ -87,4 +93,10 @@ jobs:
             -e RDS_DB_NAME=${{ secrets.RDS_DB_NAME }} \
             -e RDS_USERNAME=${{ secrets.RDS_USERNAME }} \
             -e RDS_PASSWORD=${{ secrets.RDS_PASSWORD }} \
+            -e GOOGLE_REDIRECT_URI=${{ secrets.GOOGLE_REDIRECT_URI }} \
+            -e GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }} \
+            -e KAKAO_REDIRECT_URI=${{ secrets.KAKAO_REDIRECT_URI }} \
+            -e KAKAO_CLIENT_ID=${{ secrets.KAKAO_CLIENT_ID }} \
+            -e IAMPORT_API_KEY=${{ secrets.IAMPORT_API_KEY }} \
+            -e IAMPORT_API_SECRET=${{ secrets.IAMPORT_API_SECRET }} \
             $IMAGE_NAME
