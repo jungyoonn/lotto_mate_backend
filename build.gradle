@@ -65,6 +65,9 @@ dependencies {
 
 	// AOP 의존성 추가
 	implementation 'org.springframework.boot:spring-boot-starter-aop'
+
+	// Jackson 표현식 추가
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
 }
 
 tasks.named('test') {

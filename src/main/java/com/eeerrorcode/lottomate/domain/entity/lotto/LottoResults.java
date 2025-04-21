@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -42,6 +44,7 @@ public class LottoResults {
      * 날짜 정보(동행복권 크롤링 결과입니다)
      */
     @Column(name = "draw_date", nullable = false)
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime drawDate; // 날짜 정보(동행복권 크롤링 결과입니다)
 
     @Column(name = "n1", nullable = false)

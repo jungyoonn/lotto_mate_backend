@@ -35,4 +35,5 @@ public class LottoAdminController {
     lottoScheduler.crawlLatestRoundIfNeeded();
     return CommonResponse.success("크롤링 작업이 수동으로 실행되었습니다.");
   }
+  // 시간 자체도 관리자가 직접 수정할 수 있도록 변환 할 것
 }

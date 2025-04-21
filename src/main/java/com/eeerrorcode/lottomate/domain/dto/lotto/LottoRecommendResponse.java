@@ -19,4 +19,7 @@ public class LottoRecommendResponse {
 
   @Schema(description = "요청에 사용된 옵션 정보")
   private LottoRecommendOption options;
+
+  @Schema(description = "추천된 번호 분석", example = "최근 몇 주간 등장 횟수가 많습니다")
+  private List<LottoNumberInsight> insights;
 }
