@@ -1,6 +1,7 @@
 package com.eeerrorcode.lottomate.service.lotto;
 
 import java.util.List;
+import java.util.Set;
 
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoNumberInsight;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendOption;
@@ -22,5 +23,5 @@ public interface LottoRecommendService {
    */
   LottoRecommendResponse recommendNumbers(LottoRecommendOption option);
 
-  List<LottoNumberInsight> analyzeInsights(List<Long> recommendedNumbers, List<NumberFrequency> frequencyList);
+  List<LottoNumberInsight> analyzeInsights(List<Long> recommendedNumbers, List<NumberFrequency> frequencyList, Set<Long> fixedNumbers);
 }

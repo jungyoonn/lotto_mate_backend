@@ -82,9 +82,12 @@ public class LottoRecommendServiceImpl implements LottoRecommendService {
           .sorted()
           .toList();
 
+      List<LottoNumberInsight> insights = analyzeInsights(result, frequencyList, option.getFixedNumbers());
+
       return LottoRecommendResponse.builder()
           .numbers(result)
           .options(option)
+          .insights(insights)
           .build();
 
     } catch (Exception e) {
@@ -132,19 +135,20 @@ public class LottoRecommendServiceImpl implements LottoRecommendService {
   }
 
   @Override
-  public List<LottoNumberInsight> analyzeInsights(List<Long> recommendedNumbers, List<NumberFrequency> frequencyList) {
+  public List<LottoNumberInsight> analyzeInsights(List<Long> recommendedNumbers, List<NumberFrequency> frequencyList,
+      Set<Long> fixedNumbers) {
 
     Map<Long, Long> countMap = frequencyList.stream()
         .collect(Collectors.toMap(NumberFrequency::getNum, NumberFrequency::getFrequency));
 
     List<Long> rankedNumbers = frequencyList.stream()
-        .sorted((a, b) -> Long.compare(b.getFrequency(), a.getFrequency())) // HIGH 기준
+        .sorted((a, b) -> Long.compare(b.getFrequency(), a.getFrequency()))
         .map(NumberFrequency::getNum)
         .toList();
 
     Map<Long, Long> rankMap = new HashMap<>();
     for (int i = 0; i < rankedNumbers.size(); i++) {
-      rankMap.put(rankedNumbers.get(i), i + 1L); // Long 사용
+      rankMap.put(rankedNumbers.get(i), i + 1L);
     }
 
     List<LottoNumberInsight> insights = new ArrayList<>();
@@ -154,7 +158,9 @@ public class LottoRecommendServiceImpl implements LottoRecommendService {
       Long rank = rankMap.getOrDefault(number, 0L);
       String reason;
 
-      if (count == 0) {
+      if (fixedNumbers != null && fixedNumbers.contains(number)) {
+        reason = "사용자가 고정 선택한 번호";
+      } else if (count == 0) {
         reason = "최근 회차 내 미출현 번호 중 하나";
       } else if (rank <= 10) {
         reason = "출현 빈도 상위권 번호 (TOP10)";
@@ -170,9 +176,8 @@ public class LottoRecommendServiceImpl implements LottoRecommendService {
           .rank(rank)
           .reason(reason)
           .build());
-    }
 
+    }
     return insights;
   }
-
 }
