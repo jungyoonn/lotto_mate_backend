@@ -68,7 +68,3 @@ oauth2:
         client-id: ${KAKAO_CLIENT_ID}
         client-secret: ${KAKAO_CLIENT_SECRET}
         redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8080/api/auth/oauth2/callback/kakao}
-
-# 프론트엔드 URL 설정 (OAuth2 콜백에서 리다이렉션 시 사용)
-frontend:
-  url: ${FRONTEND_URL:http://localhost:3000}

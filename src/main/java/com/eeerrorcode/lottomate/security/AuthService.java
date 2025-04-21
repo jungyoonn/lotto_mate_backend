@@ -6,35 +6,48 @@ import org.springframework.stereotype.Service;
 import com.eeerrorcode.lottomate.domain.dto.user.AuthResponse;
 import com.eeerrorcode.lottomate.domain.dto.user.LoginRequest;
 import com.eeerrorcode.lottomate.domain.dto.user.SignupRequest;
+import com.eeerrorcode.lottomate.domain.dto.user.UserRegistrationDto;
 import com.eeerrorcode.lottomate.domain.entity.user.User;
 import com.eeerrorcode.lottomate.domain.entity.user.User.Role;
+import com.eeerrorcode.lottomate.exeption.RegistrationException;
 import com.eeerrorcode.lottomate.repository.UserRepository;
+import com.eeerrorcode.lottomate.service.user.UserService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 
 @Service
 @RequiredArgsConstructor
+@Log4j2
 public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
+    private final UserService userService;
 
     public void register(SignupRequest request) {
+        // 이메일 중복 확인
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
+            throw new RegistrationException("이미 사용 중인 이메일입니다: " + request.getEmail());
         }
 
-        User user = User.builder()
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .name(request.getName())
-                .role(Role.USER)
-                .isActive(true)
-                .emailVerified(false)
-                .build();
-
-        userRepository.save(user);
+        try {
+            // SignupRequest를 UserRegistrationDto로 변환
+            UserRegistrationDto registrationDto = UserRegistrationDto.builder()
+                    .email(request.getEmail())
+                    .password(request.getPassword())
+                    .name(request.getName())
+                    .build();
+            
+            // UserService를 통해 회원가입 처리
+            userService.registerUser(registrationDto);
+            
+            log.info("회원가입 성공: {}", request.getEmail());
+        } catch (Exception e) {
+            log.error("회원가입 실패: {}", e.getMessage(), e);
+            throw new RegistrationException("회원가입 처리 중 오류가 발생했습니다: " + e.getMessage(), e);
+        }
     }
 
     public AuthResponse login(LoginRequest request) {
