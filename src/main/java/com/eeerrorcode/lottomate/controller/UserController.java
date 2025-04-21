@@ -157,7 +157,7 @@ public class UserController {
     )
     @GetMapping("/check-email")
     public ResponseEntity<CommonResponse<EmailDuplicationResponseDto>> checkEmailDuplication(
-            @RequestParam String email) {
+            @RequestParam("email") String email) {
         
         log.info("이메일 중복 확인: {}", email);
         

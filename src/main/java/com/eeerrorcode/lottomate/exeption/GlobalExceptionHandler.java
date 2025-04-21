@@ -104,7 +104,18 @@ public class GlobalExceptionHandler {
       .status(HttpStatus.BAD_REQUEST)
       .body(CommonResponse.error(errorResponse));
   }
-    
+  /**
+   * 회원가입 관련 예외 처리
+   */
+  @ExceptionHandler(RegistrationException.class)
+  public ResponseEntity<CommonResponse<Void>> handleRegistrationException(RegistrationException ex) {
+      log.error("회원가입 예외: {}", ex.getMessage());
+      
+      return ResponseEntity
+        .status(HttpStatus.BAD_REQUEST)
+        .body(CommonResponse.error("REGISTRATION_ERROR", ex.getMessage()));
+  }
+
     /**
    * 기타 모든 예외 처리
    */
@@ -116,4 +127,5 @@ public class GlobalExceptionHandler {
       .status(HttpStatus.INTERNAL_SERVER_ERROR)
       .body(CommonResponse.error("INTERNAL_SERVER_ERROR", "서버 내부 오류가 발생했습니다"));
   }
+
 }
