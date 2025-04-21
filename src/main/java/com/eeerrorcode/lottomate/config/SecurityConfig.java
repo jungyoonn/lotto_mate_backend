@@ -42,12 +42,12 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers("/api/admin/**").hasRole(Role.ADMIN.name())
-                .anyRequest().permitAll() // 개발 중에는 모든 요청 허용
+                // .anyRequest().authenticated() // 운영  
+                .anyRequest().permitAll() // 개발 
             )
             // 개발 중에는 JWT 필터 비활성화 - 인증 문제 해결 후 다시 활성화
             .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, userDetailsService), 
                             UsernamePasswordAuthenticationFilter.class);
-
         return http.build();
     }
 

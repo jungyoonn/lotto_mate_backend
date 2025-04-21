@@ -4,6 +4,7 @@ spring:
     include:
     - database
     - iamport
+    - security
   application:
     name: lottomate
   servlet:
@@ -49,33 +50,25 @@ logging:
 app:
   domain: https://lottomate.eeerrorcode.com
 
-# JWT와 OAuth2 기본 설정 - 배포 환경에서 환경 변수로 덮어씀
+# JWT 설정
 jwt:
   secret: ${JWT_SECRET:default-insecure-key}
   token-validity-in-seconds: ${JWT_TOKEN_VALIDITY_SECONDS:86400}
   refresh-token-validity-in-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_SECONDS:2592000}
 
+# OAuth2 설정 (프론트엔드 코드에서 가져온 클라이언트 ID 사용)
 oauth2:
   client:
     registration:
       google:
-        client-id: ${GOOGLE_CLIENT_ID:default-google-id}
-        client-secret: ${GOOGLE_CLIENT_SECRET:default-google-secret}
+        client-id: ${GOOGLE_CLIENT_ID}
+        client-secret: ${GOOGLE_CLIENT_SECRET}
         redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:8080/api/auth/oauth2/callback/google}
-        scope:
-          - email
-          - profile
       kakao:
-        client-id: ${KAKAO_CLIENT_ID:default-kakao-id}
-        client-secret: ${KAKAO_CLIENT_SECRET:default-kakao-secret}
+        client-id: ${KAKAO_CLIENT_ID}
+        client-secret: ${KAKAO_CLIENT_SECRET}
         redirect-uri: ${KAKAO_REDIRECT_URI:http://localhost:8080/api/auth/oauth2/callback/kakao}
-        scope:
-          - account_email
-          - profile_nickname
-          - profile_image
-    provider:
-      kakao:
-        authorization-uri: https://kauth.kakao.com/oauth/authorize
-        token-uri: https://kauth.kakao.com/oauth/token
-        user-info-uri: https://kapi.kakao.com/v2/user/me
-        user-name-attribute: id
+
+# 프론트엔드 URL 설정 (OAuth2 콜백에서 리다이렉션 시 사용)
+frontend:
+  url: ${FRONTEND_URL:http://localhost:3000}

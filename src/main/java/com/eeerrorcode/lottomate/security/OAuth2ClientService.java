@@ -1,5 +1,6 @@
 package com.eeerrorcode.lottomate.security;
 
+import com.eeerrorcode.lottomate.domain.dto.user.OAuth2TokenResponse;
 import com.eeerrorcode.lottomate.domain.dto.user.OAuth2UserInfo;
 import com.eeerrorcode.lottomate.domain.entity.user.SocialAccount.Provider;
 import com.eeerrorcode.lottomate.security.exception.OAuth2AuthenticationException;
@@ -10,8 +11,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Base64;
@@ -20,12 +24,67 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class OAuth2ClientService {
-
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     
     @Value("${oauth2.client.registration.google.client-id}")
     private String googleClientId;
+    
+    @Value("${oauth2.client.registration.google.client-secret}")
+    private String googleClientSecret;
+    
+    @Value("${oauth2.client.registration.google.redirect-uri}")
+    private String googleRedirectUri;
+    
+    @Value("${oauth2.client.registration.kakao.client-id}")
+    private String kakaoClientId;
+    
+    @Value("${oauth2.client.registration.kakao.client-secret}")
+    private String kakaoClientSecret;
+    
+    @Value("${oauth2.client.registration.kakao.redirect-uri}")
+    private String kakaoRedirectUri;
+
+    /**
+     * 인증 코드로 액세스 토큰 교환
+     */
+    public OAuth2TokenResponse getToken(Provider provider, String code) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        
+        switch (provider) {
+            case GOOGLE:
+                params.add("client_id", googleClientId);
+                params.add("client_secret", googleClientSecret);
+                params.add("code", code);
+                params.add("redirect_uri", googleRedirectUri);
+                params.add("grant_type", "authorization_code");
+                
+                return restTemplate.postForObject(
+                    "https://oauth2.googleapis.com/token",
+                    new HttpEntity<>(params, headers),
+                    OAuth2TokenResponse.class
+                );
+                
+            case KAKAO:
+                params.add("client_id", kakaoClientId);
+                params.add("client_secret", kakaoClientSecret);
+                params.add("code", code);
+                params.add("redirect_uri", kakaoRedirectUri);
+                params.add("grant_type", "authorization_code");
+                
+                return restTemplate.postForObject(
+                    "https://kauth.kakao.com/oauth/token",
+                    new HttpEntity<>(params, headers),
+                    OAuth2TokenResponse.class
+                );
+                
+            default:
+                throw new OAuth2AuthenticationException("Unsupported OAuth2 provider: " + provider);
+        }
+    }
 
     /**
      * 소셜 로그인 제공자에 따라 적절한 사용자 정보 가져오기
