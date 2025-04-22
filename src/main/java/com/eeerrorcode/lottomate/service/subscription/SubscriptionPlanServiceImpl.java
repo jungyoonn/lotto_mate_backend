@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.eeerrorcode.lottomate.domain.dto.subscription.SubscriptionPlanDto;
+import com.eeerrorcode.lottomate.domain.entity.payment.SubscriptionStatus;
 import com.eeerrorcode.lottomate.exeption.ResourceNotFoundException;
 import com.eeerrorcode.lottomate.repository.payment.SubscriptionPlanRepository;
 import com.eeerrorcode.lottomate.repository.payment.SubscriptionRepository;
@@ -69,14 +70,21 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService{
     }
     
     // 플랜 정보 업데이트
-    existingPlanDto.updatePlan(
-      planDto.getName(),
-      planDto.getDescription(),
-      planDto.getPrice(),
-      planDto.getDurationMonths(),
-      planDto.getMaxLottoNumbers(),
-      planDto.getFeatures()
-    );
+    // existingPlanDto.updatePlan(
+    //   planDto.getName(),
+    //   planDto.getDescription(),
+    //   planDto.getPrice(),
+    //   planDto.getDurationMonths(),
+    //   planDto.getMaxLottoNumbers(),
+    //   planDto.getFeatures()
+    // );
+
+    existingPlanDto.setName(planDto.getName());
+    existingPlanDto.setDescription(planDto.getDescription());
+    existingPlanDto.setPrice(planDto.getPrice());
+    existingPlanDto.setDurationMonths(planDto.getDurationMonths());
+    existingPlanDto.setMaxLottoNumbers(planDto.getMaxLottoNumbers());
+    existingPlanDto.setFeatures(planDto.getFeatures());
     
     // 활성 상태 설정
     if (planDto.isActive()) {
@@ -84,7 +92,7 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService{
     } else {
       existingPlanDto.deactivate();
     }
-    
+
     // 변경사항 저장
     SubscriptionPlanDto updatedPlanDto = toDto(subscriptionPlanRepository.save(toEntity(existingPlanDto)));
     log.info("구독 플랜 수정 완료: id = {}, name = {}", updatedPlanDto.getId(), updatedPlanDto.getName());
@@ -94,25 +102,23 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService{
 
   @Override
   public boolean deletePlan(Long planId) {
-    // 삭제(비활성화)할 플랜 조회
+    // 삭제할 플랜 조회
     SubscriptionPlanDto planDto = toDto(subscriptionPlanRepository.findById(planId)
       .orElseThrow(() -> new ResourceNotFoundException("구독 플랜을 찾을 수 없습니다: " + planId)));
     
     // 현재 활성 상태인 구독에서 사용 중인지 확인
     long activeSubscriptionsCount = subscriptionRepository.countByPlanIdAndStatus(
-      planId, com.eeerrorcode.lottomate.domain.entity.payment.SubscriptionStatus.ACTIVE);
+      planId, SubscriptionStatus.ACTIVE);
     
     if (activeSubscriptionsCount > 0) {
       log.warn("현재 사용 중인 구독 플랜은 삭제할 수 없습니다: id = {}, activeCount = {}", 
         planId, activeSubscriptionsCount);
       return false;
     }
-    
-    // 플랜 비활성화
-    planDto.deactivate();
-    Long deactivatePlanId = subscriptionPlanRepository.save(toEntity(planDto)).getId();
-    log.info("구독 플랜 비활성화 완료: id = {}, name = {}", deactivatePlanId, planDto.getName());
-    
+
+    subscriptionPlanRepository.delete(toEntity(planDto));
+    log.info("구독 플랜 삭제 완료: id = {}, name = {}", planDto.getId(), planDto.getName());
+
     return true;
   }
 
@@ -121,5 +127,27 @@ public class SubscriptionPlanServiceImpl implements SubscriptionPlanService{
     return subscriptionPlanRepository.findById(planId)
       .map(this::toDto)
       .orElse(null);
+  }
+
+  @Override
+  public boolean toggleActive(Long planId) {
+    // toggle 할 플랜 조회
+    SubscriptionPlanDto planDto = toDto(subscriptionPlanRepository.findById(planId)
+      .orElseThrow(() -> new ResourceNotFoundException("구독 플랜을 찾을 수 없습니다: " + planId)));
+
+    boolean activeSubscription = planDto.isActive();
+
+    // 플랜 비활성화
+    if (activeSubscription) {
+      planDto.deactivate();
+      Long deactivatePlanId = subscriptionPlanRepository.save(toEntity(planDto)).getId();
+      log.info("구독 플랜 비활성화 완료: id = {}, name = {}", deactivatePlanId, planDto.getName());
+      return false;
+    } else {
+      planDto.activate();
+      Long activatePlanId = subscriptionPlanRepository.save(toEntity(planDto)).getId();
+      log.info("구독 플랜 활성화 완료: id = {}, name = {}", activatePlanId, planDto.getName());
+      return true;
+    }
   }
 }

@@ -124,6 +124,34 @@ public class AdminSubscriptionController {
       return ResponseEntity.badRequest().body(false);
     }
   }
+
+  @Operation(
+    summary = "관리자 - 구독 플랜 활성화 / 비활성화",
+    description = "구독 플랜이 활성화 되어 있으면 비활성, 비활성화 되어 있으면 활성화합니다.",
+    responses = {
+      @ApiResponse(
+        responseCode = "200",
+        description = "toggle 성공",
+        content = @Content(schema = @Schema(implementation = Boolean.class))
+      ),
+      @ApiResponse(responseCode = "400", description = "toggle 실패"),
+      @ApiResponse(responseCode = "401", description = "인증 실패"),
+      @ApiResponse(responseCode = "403", description = "권한 없음"),
+      @ApiResponse(responseCode = "404", description = "플랜 없음")
+    }
+  )
+  @PutMapping("/plans/toggle/{planId}")
+  public ResponseEntity<Boolean> toggleActivatePlan(@PathVariable Long planId) {
+    boolean result = subscriptionPlanService.toggleActive(planId);
+    
+    if (result) {
+      log.info("구독 플랜 활성 완료: id = {}", planId);
+      return ResponseEntity.ok(true);
+    } else {
+      log.warn("구독 플랜 비활성 완료: id = {}", planId);
+      return ResponseEntity.ok().body(false);
+    }
+  }
     
   @Operation(
     summary = "관리자 - 모든 구독 정보 조회",

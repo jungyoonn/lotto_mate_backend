@@ -48,12 +48,20 @@ public interface SubscriptionPlanService {
   SubscriptionPlanDto updatePlan(Long planId, SubscriptionPlanDto planDto);
   
   /**
-   * 구독 플랜 삭제 (비활성화)
+   * 구독 플랜 삭제 
    * 
    * @param planId 삭제할 플랜 ID
    * @return 삭제 성공 여부
    */
   boolean deletePlan(Long planId);
+  
+  /**
+   * 구독 플랜 비활성 / 활성 토글
+   * 
+   * @param planId 활성/비활성할 플랜 ID
+   * @return true : 활성. false : 비활성
+   */
+  boolean toggleActive(Long planId);
   
   /**
    * 구독 플랜 ID로 플랜 정보 조회
