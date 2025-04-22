@@ -47,8 +47,15 @@ logging:
     com.zaxxer.hikari: WARN
     jdbc.sqlonly: WARN
     org.hibernate: WARN
+    
 app:
   domain: https://lottomate.eeerrorcode.com
+
+iamport:
+  api:
+    key: ${IAMPORT_API_KEY}
+    secret: ${IAMPORT_API_SECRET}
+    url: ${IAMPORT_API_URL:https://api.iamport.kr}
 
 # JWT 설정
 jwt:
