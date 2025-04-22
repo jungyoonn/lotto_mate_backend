@@ -2,12 +2,16 @@ package com.eeerrorcode.lottomate.domain.dto.subscription;
 
 import java.math.BigDecimal;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import lombok.*;
 
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true) // 알 수 없는 속성 무시
 public class SubscriptionPlanDto {
   private Long id;
   private String name;
@@ -16,6 +20,8 @@ public class SubscriptionPlanDto {
   private int durationMonths;
   private int maxLottoNumbers;
   private String features;
+
+  @JsonAlias("available") // "available" 필드도 "active"로 매핑
   private boolean active;
 
   /**
