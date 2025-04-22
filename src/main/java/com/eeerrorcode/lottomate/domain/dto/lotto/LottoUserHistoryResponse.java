@@ -18,23 +18,13 @@ import lombok.Setter;
 public class LottoUserHistoryResponse {
 
   private Long drawRound;
-
   private String numbers;
-
   private Boolean isAuto;
-
-  private String name;
-
   private Boolean isSubscribed;
-
   private Integer winningRank;
-
   private Long winningAmount;
-
   private Boolean isClaimed;
-
   private LocalDateTime createdAt;
-
   private LocalDateTime updatedAt;
 
   public static LottoUserHistoryResponse toDto(LottoUserHistory entity) {
@@ -42,7 +32,6 @@ public class LottoUserHistoryResponse {
         .drawRound(entity.getDrawRound())
         .numbers(entity.getNumbers())
         .isAuto(entity.isAuto())
-        .name(entity.getName())
         .isSubscribed(entity.isSubscribed())
         .winningRank(entity.getWinningRank())
         .winningAmount(entity.getWinningAmount())
@@ -58,7 +47,6 @@ public class LottoUserHistoryResponse {
         .drawRound(this.drawRound)
         .numbers(this.numbers)
         .isAuto(this.isAuto)
-        .name(this.name)
         .isSubscribed(this.isSubscribed)
         .winningRank(this.winningRank)
         .winningAmount(this.winningAmount)
