@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.eeerrorcode.lottomate.domain.dto.CommonResponse;
+import com.eeerrorcode.lottomate.domain.dto.lotto.LottoNumberHitmapResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendOption;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoResultResponse;
@@ -133,6 +134,22 @@ public class LottoController {
 
     List<LottoUserHistoryResponse> result = lottoHistoryService.logUserHistory(userId, page, size);
     return ResponseEntity.ok(CommonResponse.success(result, "사용자 로또 기록 조회 성공"));
+  }
+
+  @Operation(summary = "회차별 번호 등장 여부 매트릭스 조회", description = """
+      지정된 회차 수 범위 내에서 각 회차(drawRound)별로 1~45번 로또 번호의 등장 여부를 Boolean 값으로 반환합니다.
+
+      - true: 해당 번호가 해당 회차에 등장함
+      - false: 등장하지 않음
+
+      이 정보는 Chart.js 기반의 히트맵 시각화 등에 사용됩니다.
+      """)
+  @ApiResponse(responseCode = "200", description = "히트맵 데이터 반환 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = LottoNumberHitmapResponse.class)))
+  @GetMapping("/stats/hitmap")
+  public ResponseEntity<CommonResponse<LottoNumberHitmapResponse>> getHitmapMatrix(
+      @RequestParam @Min(1) long range) {
+    LottoNumberHitmapResponse matrix = resultService.getHitMapMatrix(range);
+    return ResponseEntity.ok(CommonResponse.success(matrix, "히트맵 데이터 조회 성공"));
   }
 
 }
