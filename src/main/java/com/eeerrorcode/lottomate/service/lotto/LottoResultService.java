@@ -2,6 +2,7 @@ package com.eeerrorcode.lottomate.service.lotto;
 
 import java.util.Map;
 
+import com.eeerrorcode.lottomate.domain.dto.lotto.LottoNumberHitmapResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoResultResponse;
 
 /**
@@ -26,4 +27,15 @@ public interface LottoResultService {
    * @return 번호별 등장 횟수를 담은 TreeMap (1~45번 → 등장 횟수)
    */
   Map<Long, Long> getNumberDistribution(long range); // DB 기반 번호 ditribution 정보 종합하기
+
+  /**
+   * 회차별 번호 등장 여부를 히트맵 형태의 행렬로 반환합니다.
+   * 각 회차(drawRound)를 Key로 하고, 1~45번까지의 번호가 해당 회차에 등장했는지 여부(Boolean)를 값으로 가지는 Map을
+   * 구성합니다.
+   * 예: {1167: {1:false, 2:true, ..., 45:false}, 1166: {...}, ...}
+   *
+   * @param range 분석할 회차 수 (최신 회차부터 몇 회차를 조회할 것인지)
+   * @return 히트맵 형태의 데이터 구조 (SortedMap<Long, Map<Integer, Boolean>>)
+   */
+  LottoNumberHitmapResponse getHitMapMatrix(long range);
 }
