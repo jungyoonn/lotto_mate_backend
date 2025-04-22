@@ -9,14 +9,17 @@ import com.eeerrorcode.lottomate.domain.dto.lotto.LottoNumberHitmapResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendOption;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoResultResponse;
+import com.eeerrorcode.lottomate.domain.dto.lotto.LottoUserHistoryRequest;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoUserHistoryResponse;
 import com.eeerrorcode.lottomate.service.lotto.*;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 
@@ -150,6 +154,35 @@ public class LottoController {
       @RequestParam @Min(1) long range) {
     LottoNumberHitmapResponse matrix = resultService.getHitMapMatrix(range);
     return ResponseEntity.ok(CommonResponse.success(matrix, "히트맵 데이터 조회 성공"));
+  }
+
+  @Operation(summary = "사용자 로또 응모 기록 저장", description = "사용자가 응모한 로또 번호 기록을 저장합니다.")
+  @Parameter(name = "userId", description = "응모 기록을 저장할 사용자 ID", required = true)
+  @ApiResponse(responseCode = "200", description = "응모 기록 저장 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = CommonResponse.class)))
+  @PostMapping("/user/history")
+  public ResponseEntity<CommonResponse<Void>> saveUserLottoHistory(@RequestParam @NotNull @Min(1) Long userId,
+      @RequestBody @Valid LottoUserHistoryRequest request) {
+
+    try {
+      lottoHistoryService.saveUserLottoHistory(userId, request);
+      return ResponseEntity.ok(CommonResponse.success(null, "로또 응모 기록 저장 완료"));
+    } catch (Exception e) {
+      return ResponseEntity.status(500).body(CommonResponse.error("HISTORY_SAVE_FAILED", "응모 기록 저장 중 오류가 발생했습니다."));
+    }
+  }
+
+  @PutMapping("/user/history/update")
+  @Operation(summary = "사용자 로또 응모 결과 갱신", description = "DB에 저장된 로또 당첨 번호를 기준으로 사용자의 응모 결과를 갱신합니다.")
+  @ApiResponse(responseCode = "200", description = "갱신 완료", content = @Content(mediaType = "application/json", schema = @Schema(implementation = CommonResponse.class)))
+  public ResponseEntity<CommonResponse<Void>> updateWinningResults(
+      @RequestParam @NotNull @Min(1) Long drawRound) {
+    try {
+      lottoHistoryService.updateWinningResults(drawRound);
+      return ResponseEntity.ok(CommonResponse.success(null, drawRound + "회차 응모 결과 갱신 완료"));
+    } catch (Exception e) {
+      return ResponseEntity.status(500).body(
+          CommonResponse.error("UPDATE_FAILED", "결과 갱신 중 오류가 발생했습니다."));
+    }
   }
 
 }
