@@ -37,9 +37,6 @@ public class LottoUserHistory extends BaseEntity{
   @Column(name = "is_auto", nullable = false)
   private boolean isAuto;
 
-  @Column(name = "name")
-  private String name;
-
   @Column(name = "is_subscribed", nullable = false)
   private boolean isSubscribed;
 

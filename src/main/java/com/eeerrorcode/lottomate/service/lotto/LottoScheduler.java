@@ -31,6 +31,7 @@ public class LottoScheduler {
 
   private final LottoCrawlerService lottoCrawlerService;
   private final LottoResultService lottoResultService;
+  private final LottoHistoryService lottoHistoryService;
 
   /**
    * 매주 토요일 21시 실행: 최신 회차 자동 업데이트
@@ -65,4 +66,19 @@ public class LottoScheduler {
   //   log.info("[테스트] 강제 실행 시작");
   //   crawlLatestRoundIfNeeded();
   // }
+
+  @Scheduled(cron = "0 0 21 * * SAT", zone = "Asia/Seoul")
+  public void crawlAndEvaluateLatestRound() {
+  try {
+    Long newRound = lottoCrawlerService.crawlLatestRound();
+    if (newRound != null) {
+      log.info("[스케줄러] {}회차 크롤링 성공. 사용자 응모 결과 평가 시작", newRound);
+      lottoHistoryService.updateWinningResults(newRound);
+    } else {
+      log.warn("[스케줄러] 회차 없음 또는 이미 존재. 결과 평가 생략됨");
+    }
+  } catch (Exception e) {
+    log.error("[스케줄러 오류] 크롤링 및 결과 평가 실패", e);
+  }
+}
 }
