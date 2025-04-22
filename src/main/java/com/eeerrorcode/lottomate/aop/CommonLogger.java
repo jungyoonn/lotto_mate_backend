@@ -57,7 +57,7 @@ public class CommonLogger {
     String methodName = joinPoint.getSignature().toShortString();
 
     if (result == null) {
-      log.info("← 반환점: {} | 타입: null | 리턴턴: null", methodName);
+      log.info("← 반환점: {} | 타입: null | 리턴: null", methodName);
       return;
     }
 
@@ -67,7 +67,7 @@ public class CommonLogger {
     if (resultStr.length() > 70) {
       log.info("← 반환점: {} | 타입: {} | 리턴: (생략 - 길이 {}자)", methodName, resultType, resultStr.length());
     } else {
-      log.info("← 반환점: {} | 타입: {} | 리턴턴: {}", methodName, resultType, resultStr);
+      log.info("← 반환점: {} | 타입: {} | 리턴: {}", methodName, resultType, resultStr);
     }
   }
 
