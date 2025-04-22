@@ -204,4 +204,28 @@ public class LottoCrawlerServiceImpl implements LottoCrawlerService {
     }
   }
 
+@Override
+public Long crawlLatestRound() {
+  WebDriverManager.chromedriver().setup();
+  WebDriver driver = new ChromeDriver();
+
+  try {
+    Integer latest = getLatestRound();
+    if (latest == -1 || lottoResultRepository.existsByDrawRound((long) latest)) {
+      log.info("[{}회차] 이미 존재하거나 유효하지 않음. 건너뜀.", latest);
+      return null;
+    }
+
+    crawlAndSave(driver, latest);
+    return (long) latest;
+
+  } catch (Exception e) {
+    log.error("[크롤링 실패] 예외 발생", e);
+    return null;
+
+  } finally {
+    driver.quit();
+  }
+}
+
 }

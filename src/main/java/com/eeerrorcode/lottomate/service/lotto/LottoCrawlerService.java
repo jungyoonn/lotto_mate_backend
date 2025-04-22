@@ -34,4 +34,6 @@ public interface LottoCrawlerService {
    * 중복된 회차는 건너뛰며, 모든 회차를 자동으로 처리합니다.
    */
   public void crawlAll();
+
+  Long crawlLatestRound();
 }
