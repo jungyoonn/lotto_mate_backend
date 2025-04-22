@@ -28,13 +28,13 @@ import lombok.extern.log4j.Log4j2;
 @Log4j2
 @RequiredArgsConstructor
 public class PaymentServiceImpl implements PaymentService{
-  private PaymentRepository paymentRepository;
-  private PaymentMethodRepository paymentMethodRepository;
-  private PaymentLogRepository paymentLogRepository;
-  private SubscriptionRepository subscriptionRepository;
-  private UserRepository userRepository;
-  private RestTemplate restTemplate;
-  private ObjectMapper objectMapper;
+  private final PaymentMethodRepository paymentMethodRepository;
+  private final PaymentRepository paymentRepository;
+  private final PaymentLogRepository paymentLogRepository;
+  private final SubscriptionRepository subscriptionRepository;
+  private final UserRepository userRepository;
+  private final RestTemplate restTemplate;
+  private final ObjectMapper objectMapper;
 
   @Value("${iamport.api.key}")
   private String iamportApiKey;

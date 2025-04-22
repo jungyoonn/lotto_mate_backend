@@ -2,6 +2,7 @@ package com.eeerrorcode.lottomate.service.subscription;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import com.eeerrorcode.lottomate.domain.dto.payment.*;
 import com.eeerrorcode.lottomate.domain.dto.subscription.*;
 import com.eeerrorcode.lottomate.domain.entity.payment.*;
+import com.eeerrorcode.lottomate.domain.entity.user.User;
 import com.eeerrorcode.lottomate.exeption.ResourceNotFoundException;
 import com.eeerrorcode.lottomate.exeption.SubscriptionException;
 import com.eeerrorcode.lottomate.repository.UserRepository;
@@ -25,14 +27,14 @@ import lombok.extern.log4j.Log4j2;
 @Log4j2
 @RequiredArgsConstructor
 public class SubscriptionServiceImpl implements SubscriptionService {
-  private SubscriptionRepository subscriptionRepository;
-  private PaymentRepository paymentRepository;
-  private SubscriptionPlanRepository subscriptionPlanRepository;
-  private UserRepository userRepository;
-  private PaymentMethodRepository paymentMethodRepository;
-  private SubscriptionCancellationRepository subscriptionCancellationRepository;
-  private PaymentService paymentService;
-  private SubscriptionPlanService subscriptionPlanService;
+  private final SubscriptionRepository subscriptionRepository;
+  private final PaymentRepository paymentRepository;
+  private final SubscriptionPlanRepository subscriptionPlanRepository;
+  private final UserRepository userRepository;
+  private final PaymentMethodRepository paymentMethodRepository;
+  private final SubscriptionCancellationRepository subscriptionCancellationRepository;
+  private final PaymentService paymentService;
+  private final SubscriptionPlanService subscriptionPlanService;
 
   @Override
   public SubscriptionResponseDto getSubscriptionInfo(Long userId) {
@@ -436,4 +438,67 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     return savedCancellationId;
   }
   
+  @Override
+public List<SubscriptionResponseDto> getAllSubscriptionsForAdmin() {
+  // 모든 구독 정보 조회 (모든 상태)
+  List<Subscription> allSubscriptions = subscriptionRepository.findAll();
+  List<SubscriptionResponseDto> responseDtoList = toResponseDtoList(allSubscriptions);
+  
+  // 추가 사용자 정보 설정
+  responseDtoList.forEach(dto -> {
+    Subscription subscription = subscriptionRepository.findById(dto.getId()).orElse(null);
+    if (subscription != null) {
+      User user = subscription.getUser();
+      // 사용자 정보를 응답 DTO에 설정
+      dto.setUserName(user.getName());
+      dto.setUserEmail(user.getEmail());
+    }
+  });
+  
+  log.info("관리자용 모든 구독 정보 조회: 총 {}건", responseDtoList.size());
+  return responseDtoList;
+}
+
+@Override
+public List<SubscriptionCancellationResponseDto> getAllCancellationRequestsForAdmin() {
+  // 미처리된 취소 요청 먼저 조회
+  List<SubscriptionCancellation> unprocessedCancellations = 
+      subscriptionCancellationRepository.findByAdminProcessedFalseOrderByCancellationDateAsc();
+      
+  // 최근 처리된 취소 요청도 포함 (최근 7일 이내)
+  LocalDateTime oneWeekAgo = LocalDateTime.now().minusDays(7);
+  List<SubscriptionCancellation> recentProcessedCancellations = 
+      subscriptionCancellationRepository.findByCancellationDateBetweenOrderByCancellationDateDesc(
+          oneWeekAgo, LocalDateTime.now())
+          .stream()
+          .filter(cancellation -> cancellation.isAdminProcessed())
+          .collect(Collectors.toList());
+  
+  // 미처리 요청과 최근 처리된 요청 병합
+  List<SubscriptionCancellation> allCancellations = new ArrayList<>(unprocessedCancellations);
+  allCancellations.addAll(recentProcessedCancellations);
+  
+  // 응답 DTO로 변환
+  List<SubscriptionCancellationResponseDto> responseDtoList = toCancellationResponseDtoList(allCancellations);
+  
+  // 추가 정보 설정
+  responseDtoList.forEach(dto -> {
+    SubscriptionCancellation cancellation = subscriptionCancellationRepository.findById(dto.getId()).orElse(null);
+    if (cancellation != null) {
+      User user = cancellation.getUser();
+      // 사용자 정보 설정
+      dto.setUserName(user.getName());
+      dto.setUserEmail(user.getEmail());
+      
+      // 관리자 처리 여부 설정
+      dto.setAdminProcessed(cancellation.isAdminProcessed());
+      
+      // 환불 처리 여부 설정
+      dto.setRefundProcessed(cancellation.isRefundProcessed());
+    }
+  });
+  
+  log.info("관리자용 구독 취소 요청 조회: 총 {}건", responseDtoList.size());
+  return responseDtoList;
+}
 }

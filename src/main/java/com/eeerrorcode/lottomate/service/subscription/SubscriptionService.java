@@ -128,6 +128,20 @@ public interface SubscriptionService {
    */
   Long processCancellationAdmin(SubscriptionCancellationAdminRequestDto requestDto);
 
+  /**
+   * 관리자용 모든 사용자의 구독 정보 조회
+   * 
+   * @return 모든 사용자의 구독 정보 목록
+   */
+  List<SubscriptionResponseDto> getAllSubscriptionsForAdmin();
+  
+  /**
+   * 관리자용 모든 구독 취소 요청 조회
+   * 
+   * @return 모든 구독 취소 요청 목록
+   */
+  List<SubscriptionCancellationResponseDto> getAllCancellationRequestsForAdmin();
+
 
   /**
    * SubscriptionDto를 Subscription 엔티티로 변환
