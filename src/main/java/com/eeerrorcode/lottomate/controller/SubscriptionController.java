@@ -1,5 +1,7 @@
 package com.eeerrorcode.lottomate.controller;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -7,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.eeerrorcode.lottomate.domain.dto.subscription.*;
 import com.eeerrorcode.lottomate.security.CustomUserDetails;
+import com.eeerrorcode.lottomate.service.subscription.SubscriptionPlanService;
 import com.eeerrorcode.lottomate.service.subscription.SubscriptionService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,6 +30,24 @@ import lombok.extern.log4j.Log4j2;
 @Tag(name = "Subscription API", description = "구독 관련 기능을 테스트할 수 있는 API입니다")
 public class SubscriptionController {
   private final SubscriptionService subscriptionService;
+  private final SubscriptionPlanService subscriptionPlanService;
+
+  @Operation(
+    summary = "활성화된 구독 플랜 목록 조회",
+    description = "현재 활성화된 모든 구독 플랜을 조회합니다.",
+    responses = {
+      @ApiResponse(
+        responseCode = "200",
+        description = "구독 플랜 목록 조회 성공",
+        content = @Content(schema = @Schema(implementation = List.class))
+      )
+    }
+  )
+  @GetMapping("/plans/active")
+  public ResponseEntity<?> getActivePlans() {
+    List<SubscriptionPlanDto> activePlans = subscriptionPlanService.getAllActivePlans();
+    return ResponseEntity.ok(activePlans);
+  }
 
   @Operation(
     summary = "결제 검증 및 구독 활성화",
