@@ -7,6 +7,8 @@ import com.eeerrorcode.lottomate.security.exception.OAuth2AuthenticationExceptio
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -22,7 +24,7 @@ import java.util.Base64;
 import java.util.Map;
 
 @Service
-@RequiredArgsConstructor
+// @RequiredArgsConstructor
 public class OAuth2ClientService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -44,7 +46,13 @@ public class OAuth2ClientService {
     
     @Value("${oauth2.client.registration.kakao.redirect-uri}")
     private String kakaoRedirectUri;
-
+    
+    // 생성자에 @Qualifier 적용
+    public OAuth2ClientService(RestTemplate restTemplate, 
+                              @Qualifier("jacksonTemplateObjectMapper") ObjectMapper objectMapper) {
+        this.restTemplate = restTemplate;
+        this.objectMapper = objectMapper;
+    }
     /**
      * 인증 코드로 액세스 토큰 교환
      */
