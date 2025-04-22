@@ -12,4 +12,5 @@ public interface LottoUserHistoryRepository extends JpaRepository<LottoUserHisto
   List<LottoUserHistory> findByUserId(Long userId);
   Page<LottoUserHistory> findByUserId(Long userId, Pageable pageable);
   boolean existsByUserIdAndDrawRound(Long userId, Long drawRound);
+  List<LottoUserHistory> findByDrawRoundAndIsClaimedFalse(Long drawRound);
 }

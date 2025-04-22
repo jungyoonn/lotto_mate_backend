@@ -63,4 +63,6 @@ public interface LottoResultRepository extends JpaRepository<LottoResults, Long>
 
 
   List<LottoResults> findByDrawRoundBetween(Long start, Long end);
+
+  Optional<LottoResults> findByDrawRound(Long drawRound);
 }
