@@ -61,4 +61,6 @@ public interface LottoResultRepository extends JpaRepository<LottoResults, Long>
       """, nativeQuery = true)
   List<NumberFrequency> findNumberFrequenciesWithBonusInRange(@Param("rangeStart") Long rangeStart);
 
+
+  List<LottoResults> findByDrawRoundBetween(Long start, Long end);
 }
