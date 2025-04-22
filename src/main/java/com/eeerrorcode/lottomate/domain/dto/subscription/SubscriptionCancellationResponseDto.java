@@ -19,10 +19,15 @@ public class SubscriptionCancellationResponseDto {
   private CancellationType cancellationType;
   private String cancellationTypeDisplay;
   private boolean refundProcessed;
+  private boolean adminProcessed;
+  private String reason;
   
   // 추가 정보
   private String planName;
   private String period; // monthly/yearly
+  private String userName;
+  private String userEmail;
+  private Long userId;
   
   /**
    * 취소 유형 표시명 설정

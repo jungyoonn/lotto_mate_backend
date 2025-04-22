@@ -28,6 +28,11 @@ public class SubscriptionResponseDto {
   private PaymentMethodDto paymentMethod;
   private PaymentResponseDto recentPayment;
 
+  // 관리자용 추가 정보
+  private String userName;
+  private String userEmail;
+  private Long userId;
+
   // 클라이언트에 표시될 카드 정보를 담는 내부 클래스
   @Data
   @Builder
