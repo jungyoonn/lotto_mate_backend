@@ -8,6 +8,7 @@ import com.eeerrorcode.lottomate.domain.dto.CommonResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendOption;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoResultResponse;
+import com.eeerrorcode.lottomate.domain.dto.lotto.LottoUserHistoryResponse;
 import com.eeerrorcode.lottomate.service.lotto.*;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,11 +16,16 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 
+import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,9 +36,14 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Tag(name = "Lotto API", description = "로또 다양한 기능을 포함한 주요 API 그룹")
 public class LottoController {
 
+  @Autowired
   private final LottoCrawlerService crawlerService;
+  @Autowired
   private final LottoResultService resultService;
+  @Autowired
   private final LottoRecommendService lottoRecommendService;
+  @Autowired
+  private final LottoHistoryService lottoHistoryService;
 
   // 전체 크롤링 메서드(DB 업데이트용)
   @Operation(summary = "전체 회차 크롤링 실행", description = "1회차부터 현재까지의 모든 로또 당첨 정보를 동행복권 사이트에서 크롤링하여 DB에 저장합니다.")
@@ -109,6 +120,19 @@ public class LottoController {
           .status(500)
           .body(CommonResponse.error("RECOMMEND_ERROR", "추천 알고리즘 실행 중 오류가 발생했습니다."));
     }
+  }
+
+  @Validated
+  @GetMapping("/user/history")
+  @Operation(summary = "사용자 로또 기록 조회", description = "특정 사용자(userId)의 로또 구매 이력 및 당첨 정보를 페이징 형식으로 반환합니다.")
+  @ApiResponse(responseCode = "200", description = "사용자 로또 이력 반환 성공", content = @Content(schema = @Schema(implementation = LottoUserHistoryResponse.class)))
+  public ResponseEntity<CommonResponse<List<LottoUserHistoryResponse>>> getUserLottoHistory(
+      @RequestParam @NotNull @Min(1) Long userId,
+      @RequestParam(defaultValue = "0") @Min(0) int page,
+      @RequestParam(defaultValue = "10") @Min(1) int size) {
+
+    List<LottoUserHistoryResponse> result = lottoHistoryService.logUserHistory(userId, page, size);
+    return ResponseEntity.ok(CommonResponse.success(result, "사용자 로또 기록 조회 성공"));
   }
 
 }
