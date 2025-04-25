@@ -59,35 +59,130 @@ public class LottoResultServiceImpl implements LottoResultService {
     return distribution;
   }
 
+  // @Override
+  // public LottoNumberHitmapResponse getHitMapMatrix(long range) {
+  // Long latestDrawRound = lottoResultRepository.findTopByOrderByDrawRoundDesc()
+  // .map(LottoResults::getDrawRound)
+  // .orElseThrow(() -> new IllegalStateException("로또 데이터가 존재하지 않습니다."));
+
+  // Long startRound = Math.max(1, latestDrawRound - range + 1);
+
+  // List<LottoResults> resultsInRange =
+  // lottoResultRepository.findByDrawRoundBetween(startRound, latestDrawRound);
+
+  // SortedMap<Long, Map<Integer, Integer>> matrix = new TreeMap<>();
+
+  // for (LottoResults result : resultsInRange) {
+  // Map<Integer, Integer> numberMap = new TreeMap<>();
+
+  // // 초기화: 1~45번 번호 모두 0으로 설정
+  // for (int i = 1; i <= 45; i++) {
+  // numberMap.put(i, 0);
+  // }
+
+  // // 등장 번호들 (보너스 포함)
+  // List<Integer> appeared = List.of(
+  // result.getN1(), result.getN2(), result.getN3(),
+  // result.getN4(), result.getN5(), result.getN6(),
+  // result.getBonusNumber());
+
+  // // 등장한 번호들의 등장 횟수 +1
+  // for (Integer num : appeared) {
+  // numberMap.put(num, numberMap.get(num) + 1);
+  // }
+
+  // matrix.put(result.getDrawRound(), numberMap);
+  // }
+
+  // return LottoNumberHitmapResponse.builder()
+  // .hitmapMatrix(matrix)
+  // .build();
+  // }
+
   @Override
-  public LottoNumberHitmapResponse getHitMapMatrix(long range) {
-    Long latestDrawRound = lottoResultRepository.findTopByOrderByDrawRoundDesc()
-        .map(LottoResults::getDrawRound)
-        .orElseThrow(() -> new IllegalStateException("로또 데이터가 존재하지 않습니다."));
+  public LottoNumberHitmapResponse getHitMapMatrixByRange(long start, long end) {
+    if (start > end)
+      throw new IllegalArgumentException("startRound는 endRound보다 작아야 합니다.");
 
-    Long startRound = Math.max(1, latestDrawRound - range + 1); 
+    List<LottoResults> resultsInRange = lottoResultRepository.findByDrawRoundBetween(start, end);
 
-    List<LottoResults> resultsInRange = lottoResultRepository.findByDrawRoundBetween(startRound, latestDrawRound);
-
-    SortedMap<Long, Map<Integer, Boolean>> matrix = new TreeMap<>();
+    SortedMap<Long, Map<Integer, Integer>> matrix = new TreeMap<>();
 
     for (LottoResults result : resultsInRange) {
-      Map<Integer, Boolean> numberMap = new TreeMap<>();
+      Map<Integer, Integer> numberMap = new TreeMap<>();
+      for (int i = 1; i <= 45; i++)
+        numberMap.put(i, 0);
 
-      for (int i = 1; i <= 45; i++) {
-        boolean exists = List.of(
-            result.getN1(), result.getN2(), result.getN3(),
-            result.getN4(), result.getN5(), result.getN6(),
-            result.getBonusNumber()).contains(i);
-        numberMap.put(i, exists);
+      List<Integer> appeared = List.of(
+          result.getN1(), result.getN2(), result.getN3(),
+          result.getN4(), result.getN5(), result.getN6(),
+          result.getBonusNumber());
+
+      for (Integer num : appeared) {
+        numberMap.put(num, numberMap.get(num) + 1);
       }
 
       matrix.put(result.getDrawRound(), numberMap);
     }
 
-    return LottoNumberHitmapResponse.builder()
-        .hitmapMatrix(matrix)
-        .build();
+    return LottoNumberHitmapResponse.builder().hitmapMatrix(matrix).build();
+  }
+
+  @Override
+  public Map<Integer, Integer> getNumberDistributionByRange(long start, long end) {
+    if (start > end)
+      throw new IllegalArgumentException("시작 회차는 종료 회차보다 작아야 합니다.");
+
+    List<LottoResults> results = lottoResultRepository.findByDrawRoundBetween(start, end);
+
+    Map<Integer, Integer> freqMap = new TreeMap<>();
+    for (int i = 1; i <= 45; i++)
+      freqMap.put(i, 0);
+
+    for (LottoResults result : results) {
+      List<Integer> numbers = List.of(
+          result.getN1(), result.getN2(), result.getN3(),
+          result.getN4(), result.getN5(), result.getN6(),
+          result.getBonusNumber());
+
+      for (Integer num : numbers) {
+        freqMap.put(num, freqMap.get(num) + 1);
+      }
+    }
+
+    return freqMap;
+  }
+
+  @Override
+  public Map<Integer, Map<Long, Integer>> getHistoricalHitmap(long startRound, long endRound) {
+    if (startRound > endRound) {
+      throw new IllegalArgumentException("startRound는 endRound보다 작거나 같아야 합니다.");
+    }
+
+    List<LottoResults> results = lottoResultRepository.findByDrawRoundBetween(startRound, endRound);
+
+    // 1~45번까지 모든 번호 초기화
+    Map<Integer, Map<Long, Integer>> resultMap = new TreeMap<>();
+
+    for (int num = 1; num <= 45; num++) {
+      resultMap.put(num, new TreeMap<>()); // 번호 중심
+    }
+
+    for (LottoResults result : results) {
+      Long round = result.getDrawRound();
+
+      List<Integer> appeared = List.of(
+          result.getN1(), result.getN2(), result.getN3(),
+          result.getN4(), result.getN5(), result.getN6(),
+          result.getBonusNumber());
+
+      for (int num = 1; num <= 45; num++) {
+        int value = appeared.contains(num) ? 1 : 0;
+        resultMap.get(num).put(round, value);
+      }
+    }
+
+    return resultMap;
   }
 
 }

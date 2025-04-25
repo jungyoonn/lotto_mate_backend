@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.eeerrorcode.lottomate.domain.dto.CommonResponse;
+import com.eeerrorcode.lottomate.domain.dto.lotto.HistoricalHeatmapResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoNumberHitmapResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendOption;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendResponse;
@@ -27,7 +28,6 @@ import lombok.RequiredArgsConstructor;
 import java.util.List;
 import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,13 +41,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Tag(name = "Lotto API", description = "로또 다양한 기능을 포함한 주요 API 그룹")
 public class LottoController {
 
-  @Autowired
   private final LottoCrawlerService crawlerService;
-  @Autowired
   private final LottoResultService resultService;
-  @Autowired
   private final LottoRecommendService lottoRecommendService;
-  @Autowired
   private final LottoHistoryService lottoHistoryService;
 
   // 전체 크롤링 메서드(DB 업데이트용)
@@ -140,35 +136,41 @@ public class LottoController {
     return ResponseEntity.ok(CommonResponse.success(result, "사용자 로또 기록 조회 성공"));
   }
 
-  @Operation(summary = "회차별 번호 등장 여부 매트릭스 조회", description = """
-      지정된 회차 수 범위 내에서 각 회차(drawRound)별로 1~45번 로또 번호의 등장 여부를 Boolean 값으로 반환합니다.
+  // @Operation(summary = "회차별 번호 등장 여부 매트릭스 조회", description = """
+  // 지정된 회차 수 범위 내에서 각 회차(drawRound)별로 1~45번 로또 번호의 등장 여부를 Boolean 값으로 반환합니다.
 
-      - true: 해당 번호가 해당 회차에 등장함
-      - false: 등장하지 않음
+  // - true: 해당 번호가 해당 회차에 등장함
+  // - false: 등장하지 않음
 
-      이 정보는 Chart.js 기반의 히트맵 시각화 등에 사용됩니다.
-      """)
-  @ApiResponse(responseCode = "200", description = "히트맵 데이터 반환 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = LottoNumberHitmapResponse.class)))
-  @GetMapping("/stats/hitmap")
-  public ResponseEntity<CommonResponse<LottoNumberHitmapResponse>> getHitmapMatrix(
-      @RequestParam @Min(1) long range) {
-    LottoNumberHitmapResponse matrix = resultService.getHitMapMatrix(range);
-    return ResponseEntity.ok(CommonResponse.success(matrix, "히트맵 데이터 조회 성공"));
-  }
+  // 이 정보는 Chart.js 기반의 히트맵 시각화 등에 사용됩니다.
+  // """)
+  // @ApiResponse(responseCode = "200", description = "히트맵 데이터 반환 성공", content =
+  // @Content(mediaType = "application/json", schema = @Schema(implementation =
+  // LottoNumberHitmapResponse.class)))
+  // @GetMapping("/stats/hitmap")
+  // public ResponseEntity<CommonResponse<LottoNumberHitmapResponse>>
+  // getHitmapMatrix(
+  // @RequestParam @Min(1) long range) {
+  // TODO: 추후 차트 전환 시 재사용 고려
+  // LottoNumberHitmapResponse matrix = resultService.getHitMapMatrix(range);
+  // return ResponseEntity.ok(CommonResponse.success(matrix, "히트맵 데이터 조회 성공"));
+  // }
 
   @Operation(summary = "사용자 로또 응모 기록 저장", description = "사용자가 응모한 로또 번호 기록을 저장합니다.")
   @Parameter(name = "userId", description = "응모 기록을 저장할 사용자 ID", required = true)
   @ApiResponse(responseCode = "200", description = "응모 기록 저장 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = CommonResponse.class)))
   @PostMapping("/user/history")
-  public ResponseEntity<CommonResponse<Void>> saveUserLottoHistory(@RequestParam @NotNull @Min(1) Long userId,
-      @RequestBody @Valid LottoUserHistoryRequest request) {
-
-    try {
-      lottoHistoryService.saveUserLottoHistory(userId, request);
-      return ResponseEntity.ok(CommonResponse.success(null, "로또 응모 기록 저장 완료"));
-    } catch (Exception e) {
-      return ResponseEntity.status(500).body(CommonResponse.error("HISTORY_SAVE_FAILED", "응모 기록 저장 중 오류가 발생했습니다."));
-    }
+  public ResponseEntity<CommonResponse<Void>>
+  saveUserLottoHistory(@RequestParam @NotNull @Min(1) Long userId,
+  @RequestBody @Valid LottoUserHistoryRequest request) {
+  try {
+  lottoHistoryService.saveUserLottoHistory(userId, request);
+  return ResponseEntity.ok(CommonResponse.success(null, "로또 응모 기록 저장 완료"));
+  } catch (Exception e) {
+  return
+  ResponseEntity.status(500).body(CommonResponse.error("HISTORY_SAVE_FAILED",
+  "응모 기록 저장 중 오류가 발생했습니다."));
+  }
   }
 
   @PutMapping("/user/history/update")
@@ -184,5 +186,40 @@ public class LottoController {
           CommonResponse.error("UPDATE_FAILED", "결과 갱신 중 오류가 발생했습니다."));
     }
   }
+
+  @GetMapping("/stats/heatmap-range")
+  public ResponseEntity<CommonResponse<LottoNumberHitmapResponse>> getHitmapMatrixRange(
+      @RequestParam @Min(1) long startRound,
+      @RequestParam @Min(1) long endRound) {
+    LottoNumberHitmapResponse matrix = resultService.getHitMapMatrixByRange(startRound, endRound);
+    return ResponseEntity.ok(CommonResponse.success(matrix, "히트맵 범위 지정 데이터 조회 성공"));
+  }
+
+  @Operation(summary = "번호별 등장 횟수 분포", description = """
+        startRound ~ endRound 범위 내에서 각 번호(1~45)의 총 등장 횟수를 반환합니다.
+        예: {1: 238, 2: 201, ..., 45: 198}
+      """)
+  @GetMapping("/stats/number-distribution-range")
+  public ResponseEntity<CommonResponse<Map<Integer, Integer>>> getNumberDistributionByRange(
+      @RequestParam @Min(1) long startRound,
+      @RequestParam @Min(1) long endRound) {
+
+    Map<Integer, Integer> result = resultService.getNumberDistributionByRange(startRound, endRound);
+    return ResponseEntity.ok(CommonResponse.success(result, "번호 분포 통계 조회 성공"));
+  }
+
+  @GetMapping("/stats/history-heatmap")
+  @Operation(summary = "히스토리컬 히트맵 조회", description = """
+    지정된 회차 범위(startRound ~ endRound) 내에서 각 번호(1~45번)가 등장한 회차를 매핑하여 반환합니다.
+  """)
+  @ApiResponse(responseCode = "200", description = "히트맵 데이터 반환 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = HistoricalHeatmapResponse.class)))
+  public ResponseEntity<CommonResponse<HistoricalHeatmapResponse>> getHistoricalHeatmap(
+      @RequestParam @Min(1) long startRound,
+      @RequestParam @Min(1) long endRound) {
+  
+    Map<Integer, Map<Long, Integer>> matrix = resultService.getHistoricalHitmap(startRound, endRound);
+    return ResponseEntity.ok(CommonResponse.success(new HistoricalHeatmapResponse(matrix), "히스토리컬 히트맵 조회 성공"));
+  }
+  
 
 }

@@ -28,14 +28,46 @@ public interface LottoResultService {
    */
   Map<Long, Long> getNumberDistribution(long range); // DB 기반 번호 ditribution 정보 종합하기
 
+  // /**
+  // * 회차별 번호 등장 여부를 히트맵 형태의 행렬로 반환합니다.
+  // * 각 회차(drawRound)를 Key로 하고, 1~45번까지의 번호가 해당 회차에 등장했는지 여부(Boolean)를 값으로 가지는
+  // Map을
+  // * 구성합니다.
+  // * 예: {1167: {1:false, 2:true, ..., 45:false}, 1166: {...}, ...}
+  // *
+  // * @param range 분석할 회차 수 (최신 회차부터 몇 회차를 조회할 것인지)
+  // * @return 히트맵 형태의 데이터 구조 (SortedMap<Long, Map<Integer, Boolean>>)
+  // */
+  // LottoNumberHitmapResponse getHitMapMatrix(long range);
+
   /**
-   * 회차별 번호 등장 여부를 히트맵 형태의 행렬로 반환합니다.
-   * 각 회차(drawRound)를 Key로 하고, 1~45번까지의 번호가 해당 회차에 등장했는지 여부(Boolean)를 값으로 가지는 Map을
-   * 구성합니다.
-   * 예: {1167: {1:false, 2:true, ..., 45:false}, 1166: {...}, ...}
+   * 지정된 회차 범위(startRound ~ endRound) 내에서 각 회차별 로또 번호(1~45번)의 등장 횟수를 히트맵 형태로
+   * 반환합니다.
+   * <p>
+   * 반환되는 데이터는 각 회차를 key로 하고, 해당 회차에서 1~45번 번호의 등장 횟수를 value로 가지는 Map 구조입니다.
+   * 이 정보는 Chart.js 등에서 시각적 히트맵 그래프를 구성할 때 사용됩니다.
+   * </p>
+   * 
+   * <pre>
+   * 예시:
+   * {
+   *   1168: {1=0, 2=1, ..., 33=2},
+   *   1167: {1=1, 2=0, ..., 45=1},
+   *   ...
+   * }
+   * </pre>
    *
-   * @param range 분석할 회차 수 (최신 회차부터 몇 회차를 조회할 것인지)
-   * @return 히트맵 형태의 데이터 구조 (SortedMap<Long, Map<Integer, Boolean>>)
+   * @param startRound 조회할 시작 회차 (포함)
+   * @param endRound   조회할 종료 회차 (포함)
+   * @return 히트맵 매트릭스 구조를 포함한 응답 DTO
+   * @throws IllegalArgumentException startRound가 endRound보다 클 경우 발생
    */
-  LottoNumberHitmapResponse getHitMapMatrix(long range);
+  LottoNumberHitmapResponse getHitMapMatrixByRange(long startRound, long endRound);
+
+  Map<Integer, Integer> getNumberDistributionByRange(long startRound, long endRound);
+
+  Map<Integer, Map<Long, Integer>> getHistoricalHitmap(long startRound, long endRound);
+
+  // SortedMap<Long, Map<Integer, Integer>> getHitmapMatrix();
+
 }
