@@ -17,6 +17,8 @@ import com.eeerrorcode.lottomate.domain.dto.user.AuthResponse;
 import com.eeerrorcode.lottomate.domain.dto.user.LoginRequest;
 import com.eeerrorcode.lottomate.domain.dto.user.SignupRequest;
 import com.eeerrorcode.lottomate.domain.dto.user.SocialLoginRequest;
+import com.eeerrorcode.lottomate.domain.dto.user.UnifiedLoginRequest;
+import com.eeerrorcode.lottomate.domain.dto.user.UnifiedLoginRequest.LoginType;
 import com.eeerrorcode.lottomate.domain.entity.user.SocialAccount.Provider;
 import com.eeerrorcode.lottomate.exeption.AuthenticationException;
 import com.eeerrorcode.lottomate.exeption.RegistrationException;
@@ -201,6 +203,60 @@ public class AuthController {
         } catch (Exception e) {
             log.error("소셜 로그인 오류: {}", e.getMessage(), e);
             throw new AuthenticationException("소셜 로그인 처리 중 오류가 발생했습니다: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 통합 로그인 엔드포인트
+     * 일반 로그인과 소셜 로그인을 하나의 엔드포인트로 처리
+     */
+    @Operation(
+        summary = "통합 로그인",
+        description = "이메일/비밀번호 또는 소셜 토큰으로 로그인합니다",
+        responses = {
+            @ApiResponse(
+                responseCode = "200", 
+                description = "로그인 성공", 
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))
+            ),
+            @ApiResponse(responseCode = "400", description = "유효하지 않은 요청"),
+            @ApiResponse(responseCode = "401", description = "인증 실패")
+        }
+    )
+    @PostMapping("/unified-login")
+    public ResponseEntity<CommonResponse<AuthResponse>> unifiedLogin(@RequestBody @Valid UnifiedLoginRequest request) {
+        try {
+            AuthResponse authResponse;
+            
+            // 로그인 유형에 따라 처리를 분기
+            if (request.getLoginType() == LoginType.EMAIL_PASSWORD) {
+                // 일반 로그인
+                LoginRequest loginRequest = new LoginRequest();
+                loginRequest.setEmail(request.getEmail());
+                loginRequest.setPassword(request.getPassword());
+                
+                authResponse = authService.login(loginRequest);
+            } else if (request.getLoginType() == LoginType.SOCIAL) {
+                // 소셜 로그인
+                SocialLoginRequest socialRequest = new SocialLoginRequest();
+                socialRequest.setProvider(request.getProvider());
+                socialRequest.setToken(request.getSocialToken());
+                
+                authResponse = oAuth2Service.processSocialLogin(socialRequest);
+            } else {
+                return ResponseEntity.badRequest()
+                    .body(CommonResponse.error("INVALID_LOGIN_TYPE", "지원하지 않는 로그인 유형입니다."));
+            }
+            
+            return ResponseEntity.ok(CommonResponse.success(authResponse, "통합 로그인 성공"));
+        } catch (IllegalArgumentException | AuthenticationException e) {
+            log.warn("로그인 실패: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(CommonResponse.error("AUTH_FAILED", e.getMessage()));
+        } catch (Exception e) {
+            log.error("로그인 처리 중 오류 발생: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(CommonResponse.error("SERVER_ERROR", "서버 오류가 발생했습니다."));
         }
     }
 }
