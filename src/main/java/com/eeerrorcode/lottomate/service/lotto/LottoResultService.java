@@ -2,6 +2,7 @@ package com.eeerrorcode.lottomate.service.lotto;
 
 import java.util.Map;
 
+import com.eeerrorcode.lottomate.domain.dto.lotto.LottoLatestResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoNumberHitmapResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoResultResponse;
 
@@ -67,6 +68,8 @@ public interface LottoResultService {
   Map<Integer, Integer> getNumberDistributionByRange(long startRound, long endRound);
 
   Map<Integer, Map<Long, Integer>> getHistoricalHitmap(long startRound, long endRound);
+
+  LottoLatestResponse getLatestDraw();
 
   // SortedMap<Long, Map<Integer, Integer>> getHitmapMatrix();
 

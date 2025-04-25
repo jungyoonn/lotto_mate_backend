@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.eeerrorcode.lottomate.domain.dto.CommonResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.HistoricalHeatmapResponse;
+import com.eeerrorcode.lottomate.domain.dto.lotto.LottoLatestResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoNumberHitmapResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendOption;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoRecommendResponse;
@@ -209,17 +210,17 @@ public class LottoController {
   }
 
   @GetMapping("/stats/history-heatmap")
-  @Operation(summary = "히스토리컬 히트맵 조회", description = """
-    지정된 회차 범위(startRound ~ endRound) 내에서 각 번호(1~45번)가 등장한 회차를 매핑하여 반환합니다.
-  """)
+  @Operation(summary = "히스토리컬 히트맵 조회", description = "지정된 회차 범위(startRound ~ endRound) 내에서 각 번호(1~45번)가 등장한 회차를 매핑하여 반환합니다.")
   @ApiResponse(responseCode = "200", description = "히트맵 데이터 반환 성공", content = @Content(mediaType = "application/json", schema = @Schema(implementation = HistoricalHeatmapResponse.class)))
-  public ResponseEntity<CommonResponse<HistoricalHeatmapResponse>> getHistoricalHeatmap(
-      @RequestParam @Min(1) long startRound,
-      @RequestParam @Min(1) long endRound) {
-  
+  public ResponseEntity<CommonResponse<HistoricalHeatmapResponse>> getHistoricalHeatmap(@RequestParam @Min(1) long startRound, @RequestParam @Min(1) long endRound) {
     Map<Integer, Map<Long, Integer>> matrix = resultService.getHistoricalHitmap(startRound, endRound);
     return ResponseEntity.ok(CommonResponse.success(new HistoricalHeatmapResponse(matrix), "히스토리컬 히트맵 조회 성공"));
   }
-  
+    
+  @GetMapping("/latest")
+  public ResponseEntity<CommonResponse<LottoLatestResponse>> getLatestLotto() {
+    LottoLatestResponse response = resultService.getLatestDraw();
+    return ResponseEntity.ok(CommonResponse.success(response));
+  }
 
 }

@@ -1,5 +1,6 @@
 package com.eeerrorcode.lottomate.service.lotto;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -8,6 +9,7 @@ import java.util.TreeMap;
 
 import org.springframework.stereotype.Service;
 
+import com.eeerrorcode.lottomate.domain.dto.lotto.LottoLatestResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoNumberHitmapResponse;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoResultResponse;
 import com.eeerrorcode.lottomate.domain.entity.lotto.LottoResults;
@@ -58,46 +60,6 @@ public class LottoResultServiceImpl implements LottoResultService {
 
     return distribution;
   }
-
-  // @Override
-  // public LottoNumberHitmapResponse getHitMapMatrix(long range) {
-  // Long latestDrawRound = lottoResultRepository.findTopByOrderByDrawRoundDesc()
-  // .map(LottoResults::getDrawRound)
-  // .orElseThrow(() -> new IllegalStateException("로또 데이터가 존재하지 않습니다."));
-
-  // Long startRound = Math.max(1, latestDrawRound - range + 1);
-
-  // List<LottoResults> resultsInRange =
-  // lottoResultRepository.findByDrawRoundBetween(startRound, latestDrawRound);
-
-  // SortedMap<Long, Map<Integer, Integer>> matrix = new TreeMap<>();
-
-  // for (LottoResults result : resultsInRange) {
-  // Map<Integer, Integer> numberMap = new TreeMap<>();
-
-  // // 초기화: 1~45번 번호 모두 0으로 설정
-  // for (int i = 1; i <= 45; i++) {
-  // numberMap.put(i, 0);
-  // }
-
-  // // 등장 번호들 (보너스 포함)
-  // List<Integer> appeared = List.of(
-  // result.getN1(), result.getN2(), result.getN3(),
-  // result.getN4(), result.getN5(), result.getN6(),
-  // result.getBonusNumber());
-
-  // // 등장한 번호들의 등장 횟수 +1
-  // for (Integer num : appeared) {
-  // numberMap.put(num, numberMap.get(num) + 1);
-  // }
-
-  // matrix.put(result.getDrawRound(), numberMap);
-  // }
-
-  // return LottoNumberHitmapResponse.builder()
-  // .hitmapMatrix(matrix)
-  // .build();
-  // }
 
   @Override
   public LottoNumberHitmapResponse getHitMapMatrixByRange(long start, long end) {
@@ -183,6 +145,19 @@ public class LottoResultServiceImpl implements LottoResultService {
     }
 
     return resultMap;
+  }
+
+  @Override
+  public LottoLatestResponse getLatestDraw() {
+    LottoResults latest = lottoResultRepository.findTopByOrderByDrawRoundDesc()
+        .orElseThrow(() -> new IllegalStateException("로또 회차 데이터가 없습니다."));
+
+    return LottoLatestResponse.builder()
+        .drawRound(latest.getDrawRound())
+        .numbers(Arrays.asList(latest.getN1(), latest.getN2(), latest.getN3(), latest.getN4(), latest.getN5(), latest.getN6()))
+        .bonusNumber(latest.getBonusNumber())
+        .drawDate(latest.getDrawDate().toString())
+        .build();
   }
 
 }
