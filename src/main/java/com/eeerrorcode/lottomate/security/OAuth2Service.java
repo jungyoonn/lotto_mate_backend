@@ -5,8 +5,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Value;  // 수정된 import
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.eeerrorcode.lottomate.domain.dto.user.AuthResponse;
 import com.eeerrorcode.lottomate.domain.dto.user.OAuth2TokenResponse;
@@ -19,18 +20,26 @@ import com.eeerrorcode.lottomate.domain.entity.user.User.Role;
 import com.eeerrorcode.lottomate.repository.SocialAccountRepository;
 import com.eeerrorcode.lottomate.repository.UserRepository;
 import com.eeerrorcode.lottomate.security.exception.OAuth2AuthenticationException;
+import com.eeerrorcode.lottomate.service.user.RefreshTokenService;
 
-import jakarta.transaction.Transactional;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 
+/**
+ * OAuth2 소셜 로그인 처리를 위한 서비스
+ * 소셜 로그인 인증, 사용자 정보 조회, 계정 연동 등을 처리합니다.
+ */
 @Service
 @RequiredArgsConstructor
+@Log4j2
 public class OAuth2Service {
 
     private final UserRepository userRepository;
     private final SocialAccountRepository socialAccountRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final OAuth2ClientService oAuth2ClientService;
+    private final RefreshTokenService refreshTokenService;
     
     @Value("${oauth2.client.registration.google.client-id}")
     private String googleClientId;
@@ -49,7 +58,34 @@ public class OAuth2Service {
     
     @Value("${oauth2.client.registration.kakao.redirect-uri}")
     private String kakaoRedirectUri;
+
+    /**
+     * 초기화 - 설정값 로깅
+     */
+    @PostConstruct
+    public void init() {
+        log.info("OAuth2 설정 - Google: clientId={}, redirectUri={}", 
+                maskString(googleClientId), googleRedirectUri);
+        log.info("OAuth2 설정 - Kakao: clientId={}, redirectUri={}", 
+                maskString(kakaoClientId), kakaoRedirectUri);
+    }
     
+    /**
+     * 문자열 마스킹 (로그용)
+     */
+    private String maskString(String input) {
+        if (input == null || input.length() <= 8) {
+            return "****";
+        }
+        return input.substring(0, 4) + "****" + input.substring(input.length() - 4);
+    }
+    
+    /**
+     * 소셜 로그인 인증 URL 생성
+     * 
+     * @param provider 소셜 로그인 제공자
+     * @return 인증 URL
+     */
     public String getAuthorizationUrl(Provider provider) {
         switch (provider) {
             case GOOGLE:
@@ -64,10 +100,18 @@ public class OAuth2Service {
                         "&redirect_uri=" + URLEncoder.encode(kakaoRedirectUri, StandardCharsets.UTF_8) +
                         "&response_type=code";
             default:
-                throw new OAuth2AuthenticationException("Unsupported OAuth2 provider: " + provider);
+                throw new OAuth2AuthenticationException("지원하지 않는 소셜 로그인 제공자: " + provider);
         }
     }
 
+    /**
+     * OAuth2 콜백 처리
+     * 인증 코드를 받아 토큰과 사용자 정보를 처리하고 JWT 토큰 발급
+     * 
+     * @param provider 소셜 로그인 제공자
+     * @param code 인증 코드
+     * @return 인증 응답 (액세스 토큰, 리프레시 토큰)
+     */
     @Transactional
     public AuthResponse processOAuth2Callback(Provider provider, String code) {
         // 인증 코드로 액세스 토큰 교환
@@ -83,6 +127,10 @@ public class OAuth2Service {
         String accessToken = jwtTokenProvider.generateToken(user);
         String refreshToken = jwtTokenProvider.generateRefreshToken(user);
         
+        // 리프레시 토큰 저장
+        String deviceInfo = "SOCIAL_LOGIN_" + provider.toString();
+        refreshTokenService.createRefreshToken(user.getId(), refreshToken, deviceInfo);
+        
         AuthResponse authResponse = new AuthResponse();
         authResponse.setAccessToken(accessToken);
         authResponse.setRefreshToken(refreshToken);
@@ -91,7 +139,13 @@ public class OAuth2Service {
         return authResponse;
     }
     
-    // 추가: processOAuth2User 메서드 구현
+    /**
+     * OAuth2 사용자 처리 (계정 연동 또는 신규 생성)
+     * 
+     * @param userInfo 소셜 사용자 정보
+     * @param tokenResponse 소셜 토큰 정보
+     * @return 사용자 엔티티
+     */
     private User processOAuth2User(OAuth2UserInfo userInfo, OAuth2TokenResponse tokenResponse) {
         // 소셜 계정 검색
         Optional<SocialAccount> existingSocialAccount = 
@@ -121,7 +175,14 @@ public class OAuth2Service {
         return user;
     }
     
-    // 추가: 토큰 정보가 포함된 소셜 계정 생성
+    /**
+     * 토큰 정보가 포함된 소셜 계정 생성
+     * 
+     * @param user 사용자
+     * @param userInfo 소셜 사용자 정보
+     * @param tokenResponse 소셜 토큰 정보
+     * @return 생성된 소셜 계정
+     */
     private SocialAccount createSocialAccountWithToken(User user, OAuth2UserInfo userInfo, OAuth2TokenResponse tokenResponse) {
         SocialAccount socialAccount = SocialAccount.builder()
                 .user(user)
@@ -138,7 +199,13 @@ public class OAuth2Service {
         return socialAccountRepository.save(socialAccount);
     }
     
-    // 추가: 토큰 정보가 포함된 소셜 계정 업데이트
+    /**
+     * 토큰 정보가 포함된 소셜 계정 업데이트
+     * 
+     * @param socialAccount 기존 소셜 계정
+     * @param userInfo 소셜 사용자 정보
+     * @param tokenResponse 소셜 토큰 정보
+     */
     private void updateSocialAccountWithToken(SocialAccount socialAccount, OAuth2UserInfo userInfo, OAuth2TokenResponse tokenResponse) {
         socialAccount.setSocialEmail(userInfo.getEmail());
         socialAccount.setSocialName(userInfo.getName());
@@ -151,7 +218,10 @@ public class OAuth2Service {
     }
     
     /**
-     * 소셜 로그인 처리
+     * 소셜 로그인 처리 (토큰 기반)
+     * 
+     * @param request 소셜 로그인 요청
+     * @return 인증 응답
      */
     @Transactional
     public AuthResponse processSocialLogin(SocialLoginRequest request) {
@@ -187,6 +257,10 @@ public class OAuth2Service {
         String accessToken = jwtTokenProvider.generateToken(user);
         String refreshToken = jwtTokenProvider.generateRefreshToken(user);
         
+        // 리프레시 토큰 저장
+        String deviceInfo = "SOCIAL_LOGIN_" + request.getProvider().toString();
+        refreshTokenService.createRefreshToken(user.getId(), refreshToken, deviceInfo);
+        
         AuthResponse authResponse = new AuthResponse();
         authResponse.setAccessToken(accessToken);
         authResponse.setRefreshToken(refreshToken);
@@ -194,9 +268,21 @@ public class OAuth2Service {
         
         return authResponse;
     }
-    
+    /**
+     * 소셜 토큰으로 사용자 정보 조회
+     * 
+     * @param provider 소셜 로그인 제공자
+     * @param token 소셜 토큰
+     * @return 사용자 정보
+     */
+    public OAuth2UserInfo getUserInfo(Provider provider, String token) {
+        return oAuth2ClientService.getUserInfo(provider, token);
+    }
     /**
      * OAuth2 정보로 새로운 User 엔티티 생성
+     * 
+     * @param userInfo 소셜 사용자 정보
+     * @return 생성된 사용자
      */
     private User createUserFromOAuth2(OAuth2UserInfo userInfo) {
         // 이메일이 null인 경우 대체 이메일 생성
@@ -221,6 +307,10 @@ public class OAuth2Service {
     
     /**
      * OAuth2 정보로 SocialAccount 엔티티 생성
+     * 
+     * @param user 사용자
+     * @param userInfo 소셜 사용자 정보
+     * @return 생성된 소셜 계정
      */
     private SocialAccount createSocialAccount(User user, OAuth2UserInfo userInfo) {
         SocialAccount socialAccount = SocialAccount.builder()
@@ -240,6 +330,9 @@ public class OAuth2Service {
     
     /**
      * SocialAccount 정보 업데이트
+     * 
+     * @param socialAccount 기존 소셜 계정
+     * @param userInfo 소셜 사용자 정보
      */
     private void updateSocialAccount(SocialAccount socialAccount, OAuth2UserInfo userInfo) {
         socialAccount.setSocialEmail(userInfo.getEmail());

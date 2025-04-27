@@ -1,9 +1,14 @@
 package com.eeerrorcode.lottomate.controller;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,15 +20,27 @@ import org.springframework.web.bind.annotation.RestController;
 import com.eeerrorcode.lottomate.domain.dto.CommonResponse;
 import com.eeerrorcode.lottomate.domain.dto.user.AuthResponse;
 import com.eeerrorcode.lottomate.domain.dto.user.LoginRequest;
+import com.eeerrorcode.lottomate.domain.dto.user.LogoutRequest;
+import com.eeerrorcode.lottomate.domain.dto.user.OAuth2UserInfo;
+import com.eeerrorcode.lottomate.domain.dto.user.RefreshTokenDto;
 import com.eeerrorcode.lottomate.domain.dto.user.SignupRequest;
 import com.eeerrorcode.lottomate.domain.dto.user.SocialLoginRequest;
+import com.eeerrorcode.lottomate.domain.dto.user.TokenRefreshRequest;
 import com.eeerrorcode.lottomate.domain.dto.user.UnifiedLoginRequest;
 import com.eeerrorcode.lottomate.domain.dto.user.UnifiedLoginRequest.LoginType;
+import com.eeerrorcode.lottomate.domain.entity.user.SocialAccount;
 import com.eeerrorcode.lottomate.domain.entity.user.SocialAccount.Provider;
+import com.eeerrorcode.lottomate.domain.entity.user.User;
+import com.eeerrorcode.lottomate.domain.entity.user.User.Role;
 import com.eeerrorcode.lottomate.exeption.AuthenticationException;
 import com.eeerrorcode.lottomate.exeption.RegistrationException;
+import com.eeerrorcode.lottomate.repository.SocialAccountRepository;
+import com.eeerrorcode.lottomate.repository.UserRepository;
 import com.eeerrorcode.lottomate.security.AuthService;
+import com.eeerrorcode.lottomate.security.CustomUserDetails;
 import com.eeerrorcode.lottomate.security.OAuth2Service;
+import com.eeerrorcode.lottomate.service.user.RefreshTokenService;
+import com.eeerrorcode.lottomate.service.user.RefreshTokenService.TokenRefreshResponseDto;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -45,6 +62,9 @@ public class AuthController {
 
     private final AuthService authService;
     private final OAuth2Service oAuth2Service;
+    private final UserRepository userRepository;
+    private final SocialAccountRepository socialAccountRepository;
+    private final RefreshTokenService refreshTokenService;
 
     /**
      * 현재 환경에 맞는 프론트엔드 URL을 결정합니다.
@@ -206,10 +226,6 @@ public class AuthController {
         }
     }
 
-    /**
-     * 통합 로그인 엔드포인트
-     * 일반 로그인과 소셜 로그인을 하나의 엔드포인트로 처리
-     */
     @Operation(
         summary = "통합 로그인",
         description = "이메일/비밀번호 또는 소셜 토큰으로 로그인합니다",
@@ -224,29 +240,60 @@ public class AuthController {
         }
     )
     @PostMapping("/unified-login")
-    public ResponseEntity<CommonResponse<AuthResponse>> unifiedLogin(@RequestBody @Valid UnifiedLoginRequest request) {
+    public ResponseEntity<CommonResponse<AuthResponse>> unifiedLogin(
+            @RequestBody @Valid UnifiedLoginRequest request,
+            HttpServletRequest httpRequest) {
         try {
-            AuthResponse authResponse;
+            // 디바이스 정보 추출 (User-Agent 또는 클라이언트에서 전달한 값)
+            String deviceInfo = request.getDeviceInfo();
+            if (deviceInfo == null || deviceInfo.isEmpty()) {
+                deviceInfo = httpRequest.getHeader("User-Agent");
+                if (deviceInfo == null) {
+                    deviceInfo = "UNKNOWN";
+                }
+            }
+            
+            User user = null;
             
             // 로그인 유형에 따라 처리를 분기
             if (request.getLoginType() == LoginType.EMAIL_PASSWORD) {
                 // 일반 로그인
-                LoginRequest loginRequest = new LoginRequest();
-                loginRequest.setEmail(request.getEmail());
-                loginRequest.setPassword(request.getPassword());
+                user = userRepository.findByEmail(request.getEmail())
+                        .orElseThrow(() -> new IllegalArgumentException("가입되지 않은 이메일입니다."));
                 
-                authResponse = authService.login(loginRequest);
+                if (!authService.verifyPassword(request.getPassword(), user.getPassword())) {
+                    throw new IllegalArgumentException("비밀번호가 틀렸습니다.");
+                }
             } else if (request.getLoginType() == LoginType.SOCIAL) {
                 // 소셜 로그인
-                SocialLoginRequest socialRequest = new SocialLoginRequest();
-                socialRequest.setProvider(request.getProvider());
-                socialRequest.setToken(request.getSocialToken());
+                OAuth2UserInfo userInfo = oAuth2Service.getUserInfo(request.getProvider(), request.getSocialToken());
                 
-                authResponse = oAuth2Service.processSocialLogin(socialRequest);
+                // 소셜 계정 검색
+                Optional<SocialAccount> existingSocialAccount = 
+                        socialAccountRepository.findByProviderAndSocialId(request.getProvider(), userInfo.getId());
+                
+                if (existingSocialAccount.isPresent()) {
+                    user = existingSocialAccount.get().getUser();
+                } else {
+                    // 이메일로 사용자 찾기 시도
+                    Optional<User> existingUser = userRepository.findByEmail(userInfo.getEmail());
+                    
+                    if (existingUser.isPresent()) {
+                        user = existingUser.get();
+                        // 소셜 계정 연결
+                        createSocialAccount(user, userInfo);
+                    } else {
+                        // 새 사용자 생성
+                        user = createUserFromOAuth2(userInfo);
+                    }
+                }
             } else {
                 return ResponseEntity.badRequest()
                     .body(CommonResponse.error("INVALID_LOGIN_TYPE", "지원하지 않는 로그인 유형입니다."));
             }
+            
+            // 공통 인증 처리 로직 - 액세스 토큰과 리프레시 토큰 생성
+            AuthResponse authResponse = authService.processUnifiedLoginResponse(user, deviceInfo);
             
             return ResponseEntity.ok(CommonResponse.success(authResponse, "통합 로그인 성공"));
         } catch (IllegalArgumentException | AuthenticationException e) {
@@ -258,5 +305,137 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(CommonResponse.error("SERVER_ERROR", "서버 오류가 발생했습니다."));
         }
+    }
+    
+    @Operation(
+        summary = "토큰 갱신",
+        description = "리프레시 토큰을 사용하여 새 엑세스 토큰을 발급합니다",
+        responses = {
+            @ApiResponse(
+                responseCode = "200", 
+                description = "토큰 갱신 성공", 
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))
+            ),
+            @ApiResponse(responseCode = "401", description = "유효하지 않은 리프레시 토큰")
+        }
+    )
+    @PostMapping("/refresh-token")
+    public ResponseEntity<CommonResponse<?>> refreshToken(@RequestBody @Valid TokenRefreshRequest request) {
+        try {
+            TokenRefreshResponseDto tokenResponse = refreshTokenService.refreshToken(request.getRefreshToken());
+            return ResponseEntity.ok(CommonResponse.success(tokenResponse, "토큰이 성공적으로 갱신되었습니다"));
+        } catch (AuthenticationException e) {
+            log.warn("토큰 갱신 실패: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(CommonResponse.error("INVALID_REFRESH_TOKEN", e.getMessage()));
+        } catch (Exception e) {
+            log.error("토큰 갱신 중 오류 발생: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(CommonResponse.error("SERVER_ERROR", "서버 오류가 발생했습니다."));
+        }
+    }
+
+    @Operation(
+        summary = "로그아웃",
+        description = "사용자의 리프레시 토큰을 무효화하여 로그아웃 처리합니다",
+        responses = {
+            @ApiResponse(
+                responseCode = "200", 
+                description = "로그아웃 성공", 
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))
+            )
+        }
+    )
+    @PostMapping("/logout")
+    public ResponseEntity<CommonResponse<Void>> logout(
+            @RequestBody LogoutRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        if (userDetails != null && userDetails instanceof CustomUserDetails) {
+            Long userId = ((CustomUserDetails) userDetails).getUser().getId();
+            
+            if (request.isLogoutAll()) {
+                // 모든 기기에서 로그아웃
+                refreshTokenService.logoutAll(userId);
+                return ResponseEntity.ok(CommonResponse.success(null, "모든 기기에서 로그아웃되었습니다"));
+            } else if (request.getRefreshToken() != null && !request.getRefreshToken().isEmpty()) {
+                // 현재 세션만 로그아웃
+                refreshTokenService.logout(request.getRefreshToken());
+                return ResponseEntity.ok(CommonResponse.success(null, "로그아웃되었습니다"));
+            }
+        }
+        
+        // 로그인되지 않은 상태에서의 요청 처리
+        return ResponseEntity.ok(CommonResponse.success(null, "로그아웃 처리되었습니다"));
+    }
+    
+    @Operation(
+        summary = "활성 세션 조회",
+        description = "사용자의 현재 활성 로그인 세션 목록을 조회합니다",
+        responses = {
+            @ApiResponse(
+                responseCode = "200", 
+                description = "세션 조회 성공", 
+                content = @Content(schema = @Schema(implementation = CommonResponse.class))
+            ),
+            @ApiResponse(responseCode = "401", description = "인증 실패")
+        }
+    )
+    @GetMapping("/sessions")
+    public ResponseEntity<CommonResponse<List<RefreshTokenDto>>> getSessions(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        if (userDetails == null || !(userDetails instanceof CustomUserDetails)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(CommonResponse.error("UNAUTHORIZED", "인증이 필요합니다"));
+        }
+        
+        Long userId = ((CustomUserDetails) userDetails).getUser().getId();
+        List<RefreshTokenDto> sessions = refreshTokenService.getRefreshTokensByUserId(userId);
+        
+        return ResponseEntity.ok(CommonResponse.success(sessions, "활성 세션 조회 성공"));
+    }
+    
+    /**
+     * OAuth2 정보로 새로운 User 엔티티 생성
+     */
+    private User createUserFromOAuth2(OAuth2UserInfo userInfo) {
+        // 이메일이 null인 경우 대체 이메일 생성
+        String email = userInfo.getEmail();
+        if (email == null) {
+            // 소셜 ID와 제공자를 조합하여 가상 이메일 생성
+            email = userInfo.getId() + "@" + userInfo.getProvider().toString().toLowerCase() + ".user";
+        }
+        
+        User user = User.builder()
+                .email(email)
+                .name(userInfo.getName())
+                .profileImage(userInfo.getProfileImage())
+                .password(null)  // 소셜 로그인 사용자는 비밀번호가 없음
+                .role(Role.USER)
+                .isActive(true)
+                .emailVerified(true)  // 소셜 로그인은 이메일이 이미 확인됨
+                .build();
+        
+        return userRepository.save(user);
+    }
+    
+    /**
+     * OAuth2 정보로 SocialAccount 엔티티 생성
+     */
+    private SocialAccount createSocialAccount(User user, OAuth2UserInfo userInfo) {
+        SocialAccount socialAccount = SocialAccount.builder()
+                .user(user)
+                .provider(userInfo.getProvider())
+                .socialId(userInfo.getId())
+                .socialEmail(userInfo.getEmail())
+                .socialName(userInfo.getName())
+                .socialProfileImage(userInfo.getProfileImage())
+                .accessToken(userInfo.getAccessToken())
+                .refreshToken(userInfo.getRefreshToken())
+                .tokenExpiresAt(LocalDateTime.now().plusDays(60))  // 토큰 만료 시간은 필요에 따라 조정
+                .build();
+        
+        return socialAccountRepository.save(socialAccount);
     }
 }

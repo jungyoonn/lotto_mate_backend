@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+// import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -35,6 +36,25 @@ public class PaymentServiceImpl implements PaymentService{
   private final UserRepository userRepository;
   private final RestTemplate restTemplate;
   private final ObjectMapper objectMapper;
+  
+  // // 생성자에 @Qualifier 추가
+  // public PaymentServiceImpl(
+  //   PaymentMethodRepository paymentMethodRepository,
+  //   PaymentRepository paymentRepository,
+  //   PaymentLogRepository paymentLogRepository,
+  //   SubscriptionRepository subscriptionRepository,
+  //   UserRepository userRepository,
+  //   RestTemplate restTemplate,
+  //   @Qualifier("jacksonTemplateObjectMapper") ObjectMapper objectMapper) {
+    
+  //   this.paymentMethodRepository = paymentMethodRepository;
+  //   this.paymentRepository = paymentRepository;
+  //   this.paymentLogRepository = paymentLogRepository;
+  //   this.subscriptionRepository = subscriptionRepository;
+  //   this.userRepository = userRepository;
+  //   this.restTemplate = restTemplate;
+  //   this.objectMapper = objectMapper;
+  // }
 
   @Value("${iamport.api.key}")
   private String iamportApiKey;
