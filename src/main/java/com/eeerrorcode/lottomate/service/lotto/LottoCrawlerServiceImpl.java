@@ -70,9 +70,9 @@ public class LottoCrawlerServiceImpl implements LottoCrawlerService {
         return;
       }
 
-      String winnerStr = driver.findElement(By.cssSelector(".tbl_data tr:nth-of-type(2) td:nth-of-type(2)")).getText()
+      String winnerStr = driver.findElement(By.cssSelector(".tbl_data tr:nth-of-type(1) td:nth-of-type(2)")).getText()
           .replaceAll("[^0-9]", "");
-      String amountStr = driver.findElement(By.cssSelector(".tbl_data tr:nth-of-type(2) td:nth-of-type(3)")).getText()
+      String amountStr = driver.findElement(By.cssSelector(".tbl_data tr:nth-of-type(1) td:nth-of-type(3)")).getText()
           .replaceAll("[^0-9]", "");
       Long winners = Long.parseLong(winnerStr);
       Long firstPrizeAmount = Long.parseLong(amountStr);
@@ -131,7 +131,6 @@ public class LottoCrawlerServiceImpl implements LottoCrawlerService {
 
   }
 
-
   @Override
   public void crawlAll() {
     WebDriverManager.chromedriver().setup();
@@ -157,7 +156,6 @@ public class LottoCrawlerServiceImpl implements LottoCrawlerService {
       driver.quit();
     }
   }
-
 
   @Override
   public void crawlLatest() {
@@ -204,28 +202,28 @@ public class LottoCrawlerServiceImpl implements LottoCrawlerService {
     }
   }
 
-@Override
-public Long crawlLatestRound() {
-  WebDriverManager.chromedriver().setup();
-  WebDriver driver = new ChromeDriver();
+  @Override
+  public Long crawlLatestRound() {
+    WebDriverManager.chromedriver().setup();
+    WebDriver driver = new ChromeDriver();
 
-  try {
-    Integer latest = getLatestRound();
-    if (latest == -1 || lottoResultRepository.existsByDrawRound((long) latest)) {
-      log.info("[{}회차] 이미 존재하거나 유효하지 않음. 건너뜀.", latest);
+    try {
+      Integer latest = getLatestRound();
+      if (latest == -1 || lottoResultRepository.existsByDrawRound((long) latest)) {
+        log.info("[{}회차] 이미 존재하거나 유효하지 않음. 건너뜀.", latest);
+        return null;
+      }
+
+      crawlAndSave(driver, latest);
+      return (long) latest;
+
+    } catch (Exception e) {
+      log.error("[크롤링 실패] 예외 발생", e);
       return null;
+
+    } finally {
+      driver.quit();
     }
-
-    crawlAndSave(driver, latest);
-    return (long) latest;
-
-  } catch (Exception e) {
-    log.error("[크롤링 실패] 예외 발생", e);
-    return null;
-
-  } finally {
-    driver.quit();
   }
-}
 
 }

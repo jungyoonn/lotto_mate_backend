@@ -4,6 +4,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import com.eeerrorcode.lottomate.domain.dto.lotto.LottoResultResponse;
 
+// import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
