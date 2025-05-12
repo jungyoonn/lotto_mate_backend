@@ -10,6 +10,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import com.eeerrorcode.lottomate.domain.dto.payment.*;
@@ -36,6 +37,7 @@ public class PaymentServiceImpl implements PaymentService{
   private final UserRepository userRepository;
   private final RestTemplate restTemplate;
   private final ObjectMapper objectMapper;
+  private final PaymentGatewayService paymentGatewayService;
   
   // // 생성자에 @Qualifier 추가
   // public PaymentServiceImpl(
@@ -64,6 +66,73 @@ public class PaymentServiceImpl implements PaymentService{
   
   @Value("${iamport.api.url}")
   private String iamportApiUrl;
+
+  @Override
+  public String getPortOneAccessToken() {
+    try {
+      log.info("포트원 액세스 토큰 발급 요청");
+      
+      // API 키 확인
+      if (iamportApiKey == null || iamportApiKey.isEmpty() || iamportApiSecret == null || iamportApiSecret.isEmpty()) {
+        log.error("포트원 API 키 또는 시크릿이 설정되지 않았습니다");
+        throw new PaymentException("포트원 API 키가 설정되지 않았습니다");
+      }
+      
+      // 토큰 요청 헤더 및 본문 설정
+      HttpHeaders headers = new HttpHeaders();
+      headers.setContentType(MediaType.APPLICATION_JSON);
+      
+      String requestBody = String.format(
+        "{\"imp_key\":\"%s\",\"imp_secret\":\"%s\"}", 
+        iamportApiKey, 
+        iamportApiSecret
+      );
+      
+      // 요청 엔티티 생성
+      HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+      String url = iamportApiUrl + "/users/getToken";
+      
+      log.info("포트원 토큰 요청 URL: {}", url);
+      
+      // API 호출
+      ResponseEntity<String> responseEntity = restTemplate.postForEntity(url, entity, String.class);
+      String response = responseEntity.getBody();
+      
+      if (response == null || response.isEmpty()) {
+        log.error("포트원 토큰 발급 응답이 비어있습니다");
+        throw new PaymentException("포트원 토큰 발급 응답이 비어있습니다");
+      }
+      
+      log.debug("포트원 토큰 응답: {}", response);
+      
+      // 응답 파싱
+      JsonNode root = objectMapper.readTree(response);
+      
+      // 응답 코드가 0이 아닐 경우 오류
+      if (root.get("code").asInt(1) != 0) {
+        log.error("포트원 토큰 발급 실패: {}", root.get("message").asText());
+        throw new PaymentException("포트원 토큰 발급 실패: " + root.get("message").asText());
+      }
+      
+      // 액세스 토큰 추출 및 반환
+      JsonNode responseNode = root.get("response");
+      if (responseNode == null || responseNode.isNull() || !responseNode.has("access_token")) {
+        log.error("포트원 응답에 토큰 정보가 없습니다");
+        throw new PaymentException("포트원 응답에 토큰 정보가 없습니다");
+      }
+      
+      String accessToken = responseNode.get("access_token").asText();
+      log.info("포트원 액세스 토큰 발급 성공");
+      
+      return accessToken;
+    } catch (HttpClientErrorException e) {
+      log.error("포트원 토큰 발급 HTTP 오류: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+      throw new PaymentException("포트원 토큰 발급 중 HTTP 오류 발생: " + e.getMessage());
+    } catch (Exception e) {
+      log.error("포트원 토큰 발급 실패: " + e.getMessage(), e);
+      throw new PaymentException("포트원 토큰 발급 중 오류 발생: " + e.getMessage());
+    }
+  }
   
   @Override
   public void processRefund(Long subscriptionId) {
@@ -116,8 +185,15 @@ public class PaymentServiceImpl implements PaymentService{
   @Override
   public void verifyPayment(String impUid, String merchantUid, BigDecimal amount) {
     try {
-      // 포트원 액세스 토큰 발급 요청
-      String token = getIamportAccessToken();
+      log.info("결제 검증 시작: impUid={}, merchantUid={}, amount={}", impUid, merchantUid, amount);
+      
+      // 매번 새로운 토큰을 발급받아 사용 (캐싱된 토큰을 사용하지 않음)
+      String token = getPortOneAccessToken();
+      log.info("포트원 액세스 토큰 발급 성공");
+      
+      if (token == null || token.isEmpty()) {
+        throw new PaymentVerificationException("포트원 액세스 토큰 발급 실패");
+      }
       
       // 포트원 결제 정보 조회
       HttpHeaders headers = new HttpHeaders();
@@ -126,7 +202,15 @@ public class PaymentServiceImpl implements PaymentService{
       HttpEntity<String> entity = new HttpEntity<>(headers);
       String url = iamportApiUrl + "/payments/" + impUid;
       
-      String response = restTemplate.getForObject(url, String.class, entity);
+      log.info("포트원 결제 정보 요청: URL={}", url);
+      ResponseEntity<String> responseEntity = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+      String response = responseEntity.getBody();
+      
+      if (response == null || response.isEmpty()) {
+        throw new PaymentVerificationException("포트원 결제 정보 응답이 비어있습니다");
+      }
+      
+      log.info("포트원 결제 정보 응답: {}", response);
       JsonNode root = objectMapper.readTree(response);
       
       // 응답 코드가 0이 아닐 경우 오류
@@ -136,18 +220,25 @@ public class PaymentServiceImpl implements PaymentService{
       
       // 결제 정보 확인
       JsonNode payment = root.get("response");
+      if (payment == null || payment.isNull()) {
+        throw new PaymentVerificationException("포트원 응답에 결제 정보가 없습니다");
+      }
+      
       String paymentImpUid = payment.get("imp_uid").asText();
       String paymentMerchantUid = payment.get("merchant_uid").asText();
       BigDecimal paymentAmount = new BigDecimal(payment.get("amount").asText());
       String status = payment.get("status").asText();
       
+      log.info("결제 정보 확인: impUid={}, merchantUid={}, amount={}, status={}", 
+        paymentImpUid, paymentMerchantUid, paymentAmount, status);
+      
       // 결제 정보 일치 여부 확인
       if (!impUid.equals(paymentImpUid)) {
-        throw new PaymentVerificationException("포트원 결제 고유번호 불일치");
+        throw new PaymentVerificationException("포트원 결제 고유번호 불일치: 요청=" + impUid + ", 실제=" + paymentImpUid);
       }
       
       if (!merchantUid.equals(paymentMerchantUid)) {
-        throw new PaymentVerificationException("주문번호 불일치");
+        throw new PaymentVerificationException("주문번호 불일치: 요청=" + merchantUid + ", 실제=" + paymentMerchantUid);
       }
       
       if (amount.compareTo(paymentAmount) != 0) {
@@ -159,9 +250,12 @@ public class PaymentServiceImpl implements PaymentService{
       }
       
       log.info("결제 검증 성공: {}, {}, {}", impUid, merchantUid, amount);
+    } catch (HttpClientErrorException e) {
+      log.error("HTTP 클라이언트 오류: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+      throw new PaymentVerificationException("결제 검증 중 HTTP 오류 발생: " + e.getMessage(), e);
     } catch (Exception e) {
       log.error("결제 검증 실패: " + e.getMessage(), e);
-      throw new PaymentVerificationException("결제 검증 중 오류 발생: " + e.getMessage());
+      throw new PaymentVerificationException("결제 검증 중 오류 발생: " + e.getMessage(), e);
     }
   }
 
@@ -257,38 +351,21 @@ public class PaymentServiceImpl implements PaymentService{
           .build();
       }
       
-      // 포트원 API를 통해 영수증 URL 조회
-      String token = getIamportAccessToken();
-      
-      HttpHeaders headers = new HttpHeaders();
-      headers.set("Authorization", token);
-      
-      HttpEntity<String> entity = new HttpEntity<>(headers);
-      String url = iamportApiUrl + "/payments/" + impUid;
-      
-      String response = restTemplate.getForObject(url, String.class, entity);
-      JsonNode root = objectMapper.readTree(response);
-      
-      // 응답 코드가 0이 아닐 경우 오류
-      if (root.get("code").asInt(1) != 0) {
-        throw new PaymentException("포트원 영수증 URL 조회 실패: " + root.get("message").asText());
-      }
-      
-      // 영수증 정보 추출
-      JsonNode paymentInfo = root.get("response");
-      String receiptUrl = paymentInfo.has("receipt_url") ? 
-        paymentInfo.get("receipt_url").asText() : "";
+      // PaymentGatewayService를 사용하여 결제 정보 조회
+      PaymentGatewayResponseDto paymentInfo = paymentGatewayService.getPaymentInfo(impUid);
       
       // 영수증 URL 업데이트
-      paymentDto.setReceiptUrl(receiptUrl);
-      paymentRepository.save(toEntity(paymentDto));
+      if (paymentInfo.getReceiptUrl() != null) {
+        paymentDto.setReceiptUrl(paymentInfo.getReceiptUrl());
+        paymentRepository.save(toEntity(paymentDto));
+      }
       
       return PaymentReceiptResponseDto.builder()
         .impUid(paymentDto.getImpUid())
         .merchantUid(paymentDto.getMerchantUid())
-        .receiptUrl(receiptUrl)
-        .cardName(paymentDto.getCardName())
-        .cardNumber(paymentDto.getCardNumber())
+        .receiptUrl(paymentInfo.getReceiptUrl())
+        .cardName(paymentInfo.getCardName() != null ? paymentInfo.getCardName() : paymentDto.getCardName())
+        .cardNumber(paymentInfo.getCardNumber() != null ? paymentInfo.getCardNumber() : paymentDto.getCardNumber())
         .pgProvider(paymentDto.getPgProvider())
         .build();
     } catch (Exception e) {
@@ -318,7 +395,7 @@ public class PaymentServiceImpl implements PaymentService{
 
       PaymentLogDto paymentLogDto = PaymentLogDto.builder()
         .userId(userId)
-        .paymentId(paymentDto.getId())
+        .paymentId(paymentDto == null ? null : paymentDto.getId())
         .action(requestDto.getAction())
         .requestData(requestDto.getRequestData())
         .responseData(requestDto.getResponseData())
@@ -370,27 +447,15 @@ public class PaymentServiceImpl implements PaymentService{
         throw new PaymentException("환불 금액이 결제 금액보다 클 수 없습니다.");
       }
       
-      // 포트원 환불 요청
-      String token = getIamportAccessToken();
+      // PaymentGatewayService를 사용하여 환불 요청
+      PaymentGatewayResponseDto refundResult = paymentGatewayService.refundPayment(
+        paymentDto.getImpUid(),
+        requestDto.getRefundAmount(),
+        requestDto.getReason()
+      );
       
-      HttpHeaders headers = new HttpHeaders();
-      headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-      headers.set("Authorization", token);
-      
-      MultiValueMap<String, String> map = new LinkedMultiValueMap<>();
-      map.add("imp_uid", paymentDto.getImpUid());
-      map.add("amount", requestDto.getRefundAmount().toString());
-      map.add("reason", requestDto.getReason());
-      
-      HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(map, headers);
-      String url = iamportApiUrl + "/payments/cancel";
-      
-      String response = restTemplate.postForObject(url, entity, String.class);
-      JsonNode root = objectMapper.readTree(response);
-      
-      // 응답 코드가 0이 아닐 경우 오류
-      if (root.get("code").asInt(1) != 0) {
-        throw new PaymentException("포트원 결제 환불 실패: " + root.get("message").asText());
+      if (!refundResult.isCancelled()) {
+        throw new PaymentException("포트원 결제 환불 실패: " + (refundResult.getErrorMsg() != null ? refundResult.getErrorMsg() : "알 수 없는 오류"));
       }
       
       // 환불 처리 상태 업데이트
@@ -402,7 +467,11 @@ public class PaymentServiceImpl implements PaymentService{
         paymentDto.setPaymentStatus(PaymentStatus.PARTIAL_REFUNDED);
       }
       
-      // toEntity 메서드를 통해 저장
+      // refundAmount와 refundDate 설정
+      paymentDto.setRefundAmount(requestDto.getRefundAmount());
+      paymentDto.setRefundDate(LocalDateTime.now());
+      
+      // 수정된 DTO를 엔티티로 변환하여 저장
       paymentRepository.save(toEntity(paymentDto));
       
       // 구독 취소 요청이 있으면 처리

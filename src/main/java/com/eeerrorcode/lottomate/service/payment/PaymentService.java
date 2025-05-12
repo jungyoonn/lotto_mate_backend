@@ -10,6 +10,13 @@ import com.eeerrorcode.lottomate.domain.entity.user.User;
 
 public interface PaymentService {
   void processRefund(Long subscriptionId);
+
+  /**
+   * 포트원 액세스 토큰 발급
+   * 
+   * @return 액세스 토큰
+   */
+  String getPortOneAccessToken();
   
    /**
    * 포트원 결제 검증 (가맹점 결제 검증)

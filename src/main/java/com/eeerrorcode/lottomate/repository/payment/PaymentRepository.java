@@ -29,6 +29,11 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
    * 포트원 결제 고유번호와 사용자 ID로 결제 조회
    */
   Optional<Payment> findByImpUidAndUserId(String impUid, Long userId);
+
+  /**
+   * 포트원 결제 고유번호로 결제 조회 (사용자 ID 무관)
+   */
+  Optional<Payment> findByImpUid(String impUid);
   
   /**
    * 사용자 ID와 결제 ID로 결제 조회

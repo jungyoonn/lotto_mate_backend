@@ -7,8 +7,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import com.eeerrorcode.lottomate.domain.dto.payment.PaymentLogCreateRequestDto;
 import com.eeerrorcode.lottomate.domain.dto.subscription.*;
+import com.eeerrorcode.lottomate.domain.entity.user.User;
+import com.eeerrorcode.lottomate.exeption.ResourceNotFoundException;
+import com.eeerrorcode.lottomate.repository.UserRepository;
 import com.eeerrorcode.lottomate.security.CustomUserDetails;
+import com.eeerrorcode.lottomate.security.JwtTokenProvider;
+import com.eeerrorcode.lottomate.service.payment.PaymentService;
 import com.eeerrorcode.lottomate.service.subscription.SubscriptionPlanService;
 import com.eeerrorcode.lottomate.service.subscription.SubscriptionService;
 
@@ -18,6 +24,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -31,6 +38,9 @@ import lombok.extern.log4j.Log4j2;
 public class SubscriptionController {
   private final SubscriptionService subscriptionService;
   private final SubscriptionPlanService subscriptionPlanService;
+  private final PaymentService paymentService;
+  private final JwtTokenProvider jwtUtil;
+  private final UserRepository userRepository;
 
   @Operation(
     summary = "활성화된 구독 플랜 목록 조회",
@@ -64,14 +74,104 @@ public class SubscriptionController {
   )
   @PostMapping("/verify-payment")
   public ResponseEntity<?> verifyPaymentAndCreateSubscription(
-    @Parameter(hidden = true) @AuthenticationPrincipal CustomUserDetails userDetails,
-    @Valid @RequestBody SubscriptionVerifyPaymentRequestDto requestDto
+    @Valid @RequestBody SubscriptionVerifyPaymentRequestDto requestDto,
+    @RequestHeader(value = "X-PortOne-Token", required = false) String portOneToken,
+    @RequestHeader(value = "Authorization", required = false) String authHeader,
+    HttpServletRequest request
   ) {
-    Long userId = userDetails.getUser().getId();
-    Long subscriptionId = subscriptionService.verifyPaymentAndActivateSubscription(userId, requestDto);
+    Long userId = null;
     
-    log.info("결제 검증 및 구독 활성화 성공: userId = {}, subscriptionId = {}", userId, subscriptionId);
-    return ResponseEntity.ok(subscriptionId);
+    // JWT 토큰에서 사용자 ID 추출 시도
+    if (authHeader != null && authHeader.startsWith("Bearer ")) {
+      String token = authHeader.substring(7);
+      try {
+        // JWT 토큰 파싱하여 userId 추출
+        userId = jwtUtil.getUserIdFromToken(token);
+        log.info("토큰에서 추출한 userId: {}", userId);
+      } catch (Exception e) {
+        log.warn("토큰에서 userId 추출 실패: {}", e.getMessage());
+      }
+    }
+    
+    // userId가 없는 경우 requestDto에서 이메일 정보를 사용하여 사용자 조회
+    if (userId == null && requestDto.getUserEmail() != null) {
+      try {
+        User user = userRepository.findByEmail(requestDto.getUserEmail())
+          .orElseThrow(() -> new ResourceNotFoundException("해당 이메일의 사용자를 찾을 수 없습니다: " + requestDto.getUserEmail()));
+        userId = user.getId();
+        log.info("이메일로 조회한 userId: {}", userId);
+      } catch (Exception e) {
+        log.error("이메일로 사용자 조회 실패: {}", e.getMessage());
+        return ResponseEntity.badRequest().body("사용자 정보를 찾을 수 없습니다. 로그인 후 다시 시도해주세요.");
+      }
+    }
+    
+    if (userId == null) {
+      log.error("사용자 ID를 확인할 수 없습니다.");
+      return ResponseEntity.badRequest().body("사용자 인증에 실패했습니다. 로그인 후 다시 시도해주세요.");
+    }
+    
+    try {
+      // 포트원 토큰이 없는 경우 발급 시도
+      if (portOneToken == null || portOneToken.isEmpty()) {
+        portOneToken = paymentService.getPortOneAccessToken();
+      }
+      
+      // 결제 검증 요청 로그 기록
+      try {
+        paymentService.logPaymentAction(
+          userId, 
+          PaymentLogCreateRequestDto.builder()
+            .action(com.eeerrorcode.lottomate.domain.entity.payment.PaymentLogAction.PAYMENT_ATTEMPT)
+            .requestData(requestDto.toString())
+            .build(),
+          request.getRemoteAddr()
+        );
+      } catch (Exception e) {
+        log.warn("결제 로그 기록 실패: {}", e.getMessage());
+        // 로그 기록 실패는 주요 기능을 차단하지 않도록 예외 처리
+      }
+      
+      // 결제 검증 및 구독 활성화
+      Long subscriptionId = subscriptionService.verifyPaymentAndActivateSubscription(userId, requestDto);
+      
+      // 결제 성공 로그 기록
+      try {
+        paymentService.logPaymentAction(
+          userId, 
+          PaymentLogCreateRequestDto.builder()
+            .action(com.eeerrorcode.lottomate.domain.entity.payment.PaymentLogAction.PAYMENT_SUCCESS)
+            .paymentId(subscriptionId)
+            .build(),
+          request.getRemoteAddr()
+        );
+      } catch (Exception e) {
+        log.warn("결제 성공 로그 기록 실패: {}", e.getMessage());
+        // 로그 기록 실패는 주요 기능을 차단하지 않도록 예외 처리
+      }
+      
+      log.info("결제 검증 및 구독 활성화 성공: userId = {}, subscriptionId = {}", userId, subscriptionId);
+      return ResponseEntity.ok(subscriptionId);
+    } catch (Exception e) {
+      // 결제 실패 로그 기록
+      try {
+        if (userId != null) {
+          paymentService.logPaymentAction(
+            userId, 
+            PaymentLogCreateRequestDto.builder()
+              .action(com.eeerrorcode.lottomate.domain.entity.payment.PaymentLogAction.PAYMENT_FAILED)
+              .responseData("Error: " + e.getMessage())
+              .build(),
+            request.getRemoteAddr()
+          );
+        }
+      } catch (Exception logError) {
+        log.warn("결제 실패 로그 기록 실패: {}", logError.getMessage());
+      }
+      
+      log.error("결제 검증 실패: " + e.getMessage(), e);
+      return ResponseEntity.badRequest().body(e.getMessage());
+    }
   }
   
   @Operation(
@@ -160,19 +260,68 @@ public class SubscriptionController {
         description = "구독 상세 정보 조회 성공",
         content = @Content(schema = @Schema(implementation = SubscriptionDetailsResponseDto.class))
       ),
-      @ApiResponse(responseCode = "401", description = "인증 실패"),
+      @ApiResponse(responseCode = "400", description = "잘못된 요청"),
       @ApiResponse(responseCode = "404", description = "구독 정보 없음")
     }
   )
   @GetMapping("/details")
   public ResponseEntity<?> getSubscriptionDetails(
     @Parameter(hidden = true) @AuthenticationPrincipal CustomUserDetails userDetails,
-    @RequestParam String imp_uid
+    @RequestParam String imp_uid,
+    @RequestParam(required = false) String email,
+    HttpServletRequest request
   ) {
-    Long userId = userDetails.getUser().getId();
-    SubscriptionDetailsResponseDto details = subscriptionService.getSubscriptionDetails(userId, imp_uid);
-    
-    return ResponseEntity.ok(details);
+    try {
+      Long userId = null;
+      
+      // 인증된 사용자가 있는 경우 ID 추출
+      if (userDetails != null) {
+        userId = userDetails.getUser().getId();
+        log.info("인증된 사용자의 구독 정보 요청: userId={}, impUid={}", userId, imp_uid);
+      } else {
+        log.info("인증되지 않은 요청으로 구독 정보 조회: impUid={}, email={}", imp_uid, email);
+        
+        // 이메일이 제공된 경우 사용자 조회
+        if (email != null && !email.isEmpty()) {
+          User user = userRepository.findByEmail(email)
+            .orElse(null);
+          
+          if (user != null) {
+            userId = user.getId();
+            log.info("이메일로 사용자 조회 성공: userId={}", userId);
+          } else {
+            log.warn("이메일로 사용자 조회 실패: email={}", email);
+          }
+        }
+        
+        // JWT 토큰에서 사용자 ID 추출 시도 (Authorization 헤더 확인)
+        if (userId == null) {
+          String authHeader = request.getHeader("Authorization");
+          if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            try {
+              userId = jwtUtil.getUserIdFromToken(token);
+              log.info("토큰에서 사용자 ID 추출 성공: userId={}", userId);
+            } catch (Exception e) {
+              log.warn("토큰에서 사용자 ID 추출 실패: {}", e.getMessage());
+            }
+          }
+        }
+      }
+      
+      // userId가 있든 없든 구독 정보 조회 시도
+      SubscriptionDetailsResponseDto details = subscriptionService.getSubscriptionDetails(userId, imp_uid);
+      log.info("구독 상세 정보 조회 성공: impUid={}, subscriptionId={}", imp_uid, details.getId());
+      
+      return ResponseEntity.ok(details);
+    } catch (ResourceNotFoundException e) {
+      log.error("구독 정보를 찾을 수 없음: {}", e.getMessage());
+      return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+    } catch (Exception e) {
+      log.error("구독 상세 정보 조회 중 오류 발생: {}", e.getMessage(), e);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .body("구독 정보 조회 중 오류가 발생했습니다: " + e.getMessage());
+    }
   }
 
   @Operation(

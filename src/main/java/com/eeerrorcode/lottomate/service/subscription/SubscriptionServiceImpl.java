@@ -104,6 +104,20 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
   @Override
   public Long verifyPaymentAndActivateSubscription(Long userId, SubscriptionVerifyPaymentRequestDto requestDto) {
+    // 사용자 존재 확인
+    User user;
+    
+    // userId가 null이고 이메일이 존재할 경우, 이메일로 사용자 조회
+    if (userId == null && requestDto.getUserEmail() != null && !requestDto.getUserEmail().isEmpty()) {
+      user = userRepository.findByEmail(requestDto.getUserEmail())
+        .orElseThrow(() -> new ResourceNotFoundException("해당 이메일의 사용자를 찾을 수 없습니다: " + requestDto.getUserEmail()));
+      // userId를 재할당하지 않고 user.getId()를 직접 사용
+    } else {
+      // userId가 있는 경우
+      user = userRepository.findById(userId)
+        .orElseThrow(() -> new ResourceNotFoundException("사용자를 찾을 수 없습니다: " + userId));
+    }
+
     // 결제 검증 (포트원 API 호출)
     paymentService.verifyPayment(requestDto.getImpUid(), requestDto.getMerchantUid(), requestDto.getAmount());
 
@@ -111,9 +125,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     if (planDto == null) {
       throw new ResourceNotFoundException("구독 플랜을 찾을 수 없습니다: " + requestDto.getPlan());
     }
-
-    userRepository.findById(userId)
-      .orElseThrow(() -> new ResourceNotFoundException("사용자를 찾을 수 없습니다: " + userId));
 
     // 구독 기간 설정 (월간/연간)
     int durationMonths = "monthly".equals(requestDto.getPeriod()) ? 1 : 12;
@@ -123,8 +134,8 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     LocalDateTime endDate = now.plusMonths(durationMonths);
     LocalDateTime nextPaymentDate = endDate;
 
-    // 이미 존재하는 활성 구독 확인
-    List<SubscriptionDto> activeSubscriptions = getSubscriptionsByUserIdAndStatus(userId, SubscriptionStatus.ACTIVE);
+    // 이미 존재하는 활성 구독 확인 - user.getId()를 직접 사용
+    List<SubscriptionDto> activeSubscriptions = getSubscriptionsByUserIdAndStatus(user.getId(), SubscriptionStatus.ACTIVE);
     
     for (SubscriptionDto activeSubscription : activeSubscriptions) {
       // Dto 수정 (취소 상태로)
@@ -139,9 +150,9 @@ public class SubscriptionServiceImpl implements SubscriptionService {
       subscriptionRepository.save(toEntity(activeSubscription));
     }
 
-    // 새 구독 Dto 생성
+    // 새 구독 Dto 생성 - user.getId()를 직접 사용
     SubscriptionDto newSubscriptionDto = SubscriptionDto.builder()
-      .userId(userId)
+      .userId(user.getId())
       .planId(planDto.getId())
       .planName(planDto.getName())
       .status(SubscriptionStatus.ACTIVE)
@@ -154,9 +165,9 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     // Dto를 저장
     Long subscriptionId = subscriptionRepository.save(toEntity(newSubscriptionDto)).getId();
 
-    // 결제 정보 DTO 생성
+    // 결제 정보 DTO 생성 - user.getId()를 직접 사용
     PaymentDto paymentDto = PaymentDto.builder()
-      .userId(userId)
+      .userId(user.getId())
       .subscriptionId(subscriptionId)
       .amount(requestDto.getAmount())
       .paymentMethod("CARD") // 포트원 결제는 카드 결제로 가정
@@ -254,29 +265,60 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
   @Override
   public SubscriptionDetailsResponseDto getSubscriptionDetails(Long userId, String impUid) {
-    // 결제 정보로 구독 정보 조회
-    Payment payment = paymentRepository.findByImpUidAndUserId(impUid, userId)
-      .orElseThrow(() -> new ResourceNotFoundException("결제 정보를 찾을 수 없습니다: " + impUid));
-        
-    if (payment.getSubscription() == null) {
-      throw new ResourceNotFoundException("해당 결제와 연결된 구독 정보가 없습니다.");
+    log.info("구독 상세 정보 조회 시작: userId={}, impUid={}", userId, impUid);
+    
+    // 결제 정보 조회
+    Payment payment = null;
+    
+    try {
+      // 사용자 ID가 있으면 사용자 ID와 impUid로 조회
+      if (userId != null) {
+        payment = paymentRepository.findByImpUidAndUserId(impUid, userId).orElse(null);
+        log.info("사용자 ID와 impUid로 결제 정보 조회: {}", payment != null ? "성공" : "실패");
+      }
+      
+      // 사용자 ID로 조회 실패했거나 없는 경우, impUid로만 조회
+      if (payment == null) {
+        payment = paymentRepository.findByImpUid(impUid)
+          .orElseThrow(() -> {
+            log.error("결제 정보를 찾을 수 없음: impUid={}", impUid);
+            return new ResourceNotFoundException("결제 정보를 찾을 수 없습니다: " + impUid);
+          });
+        log.info("impUid로만 결제 정보 조회 성공");
+      }
+      
+      if (payment.getSubscription() == null) {
+        log.error("해당 결제와 연결된 구독 정보가 없음: impUid={}", impUid);
+        throw new ResourceNotFoundException("해당 결제와 연결된 구독 정보가 없습니다.");
+      }
+      
+      Subscription subscription = payment.getSubscription();
+      SubscriptionPlan plan = subscription.getPlan();
+      
+      // 구독 기간 (monthly/yearly) 결정
+      String period = plan.getDurationMonths() <= 1 ? "monthly" : "yearly";
+      
+      // 응답 DTO 생성
+      SubscriptionDetailsResponseDto responseDto = SubscriptionDetailsResponseDto.builder()
+        .id(subscription.getId())
+        .plan(plan.getName().toLowerCase())
+        .period(period)
+        .amount(payment.getAmount())
+        .startDate(subscription.getStartDate())
+        .nextPaymentDate(subscription.getNextPaymentDate())
+        .merchantUid(payment.getMerchantUid())
+        .build();
+      
+      log.info("구독 상세 정보 조회 성공: subscriptionId={}, planName={}", 
+        subscription.getId(), plan.getName());
+      
+      return responseDto;
+    } catch (ResourceNotFoundException e) {
+      throw e;
+    } catch (Exception e) {
+      log.error("구독 상세 정보 조회 중 예외 발생: {}", e.getMessage(), e);
+      throw new RuntimeException("구독 정보 조회 중 오류가 발생했습니다.", e);
     }
-    
-    Subscription subscription = payment.getSubscription();
-    SubscriptionPlan plan = subscription.getPlan();
-    
-    // 구독 기간 (monthly/yearly) 결정
-    String period = plan.getDurationMonths() <= 1 ? "monthly" : "yearly";
-    
-    return SubscriptionDetailsResponseDto.builder()
-      .id(subscription.getId())
-      .plan(plan.getName().toLowerCase())
-      .period(period)
-      .amount(payment.getAmount())
-      .startDate(subscription.getStartDate())
-      .nextPaymentDate(subscription.getNextPaymentDate())
-      .merchantUid(payment.getMerchantUid())
-      .build();
   }
 
   @Override
